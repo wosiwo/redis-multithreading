@@ -10,8 +10,14 @@
 void workerReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     redisClient *c = (redisClient*) privdata;
 
-    processInputBuffer(c);  //执行客户端操作命令
+    redisLog(REDIS_WARNING,"workerReadHandle connfd %d ",connfd);
 
+    //从worker线程事件循环中删除这个连接 ，避免重复执行
+    aeDeleteFileEvent(el,connfd,AE_WRITABLE);
+
+    processInputBuffer(c);  //执行客户端操作命令
+//    close(c->fd);
+    //
     //将返回结果抛给原来的reactor线程 的操作
 
 
@@ -33,7 +39,7 @@ void rdWorkerThread_loop(int worker_id) {
     el = aeCreateEventLoop(REDIS_MAX_CLIENTS);
 
 
-    redisLog(REDIS_VERBOSE,"rdWorkerThread_loop worker_id %d \n", worker_id);
+    redisLog(REDIS_WARNING,"rdWorkerThread_loop worker_id %d ", worker_id);
 
     //存储线程相关信息
     server.worker[worker_id].pidt = thread_id;

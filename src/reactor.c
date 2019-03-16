@@ -13,9 +13,12 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     redisClient *c = (redisClient*) privdata;
     //TODO 读取数据
     readQueryFromClient(el, connfd, privdata, mask);
+    redisLog(REDIS_WARNING,"reactorReadHandle connfd %d ",connfd);
+    aeEventLoop *worker_el = server.worker[0].el;
+    redisLog(REDIS_WARNING,"reactorReadHandle worker_el->fired->fd %d ",worker_el->fired->fd);
 
     // 绑定到worker线程的事件循环,处于线程安全问题的考虑，暂时只使用一个worker线程
-    if (aeCreateFileEvent(server.worker[0].el,connfd,AE_READABLE,
+    if (aeCreateFileEvent(worker_el,connfd,AE_WRITABLE,
                           workerReadHandle, c) == AE_ERR)
     {
         close(connfd);
@@ -38,7 +41,7 @@ void rdReactorThread_loop(int reactor_id)
     el = aeCreateEventLoop(REDIS_MAX_CLIENTS);
 
 
-    redisLog(REDIS_VERBOSE,"rdReactorThread_loop reactor_id %d \n",reactor_id);
+    redisLog(REDIS_WARNING,"rdReactorThread_loop reactor_id %d ",reactor_id);
 
     //存储线程相关信息
     server.reactors[reactor_id].pidt = thread_id;

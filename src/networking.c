@@ -233,13 +233,18 @@ int prepareClientToWrite(redisClient *c) {
     if (c->fd <= 0) return REDIS_ERR; /* Fake client */
 
     // 一般情况，为客户端套接字安装写处理器到事件循环
+    redisLog(REDIS_WARNING,"prepareClientToWrite  c->bufpos %d listLength(c->reply) %d c->replstate %d",c->bufpos,listLength(c->reply),c->replstate);
+
     if (c->bufpos == 0 && listLength(c->reply) == 0 &&
         (c->replstate == REDIS_REPL_NONE ||
          c->replstate == REDIS_REPL_ONLINE) &&
 //        aeCreateFileEvent(server.el, c->fd, AE_WRITABLE,
         //使用客户端绑定的事件驱动器
         aeCreateFileEvent(c->reactor_el, c->fd, AE_WRITABLE,
-        sendReplyToClient, c) == AE_ERR) return REDIS_ERR;
+        sendReplyToClient, c) == AE_ERR) {
+        redisLog(REDIS_WARNING,"aeCreateFileEvent sendReplyToClient");
+        return REDIS_ERR;
+    }
 
     return REDIS_OK;
 }
@@ -754,7 +759,11 @@ void copyClientOutputBuffer(redisClient *dst, redisClient *src) {
 
 void dispatch2Reactor(int connfd,redisClient *c){
     int reactor_id = connfd%server.reactorNum; //连接fd对REACTOR_NUM取余，决定抛给哪个reactor线程
-    int reactor_el = server.reactors[reactor_id].el;    //获取指定线程的事件驱动器
+    aeEventLoop *reactor_el = server.reactors[reactor_id].el;    //获取指定线程的事件驱动器
+
+    redisLog(REDIS_WARNING,"dispatch2Reactor reactor_id %d",reactor_id);
+    redisLog(REDIS_WARNING,"dispatch2Reactor reactor_el->fired->fd %d ",reactor_el->fired->fd);
+
 
     c->reactor_el = reactor_el; //绑定线程事件循环
 
@@ -764,6 +773,8 @@ void dispatch2Reactor(int connfd,redisClient *c){
     if (aeCreateFileEvent(reactor_el,connfd,AE_READABLE,
                           reactorReadHandle, c) == AE_ERR)
     {
+        redisLog(REDIS_WARNING,"dispatch2Reactor AE_ERR %d",AE_ERR);
+
         close(connfd);
         zfree(c);
     }
@@ -1585,6 +1596,8 @@ void processInputBuffer(redisClient *c) {
         } else {
             /* Only reset the client when the command was executed. */
             // 执行命令，并重置客户端
+            redisLog(REDIS_WARNING,"processCommand");
+
             if (processCommand(c) == REDIS_OK)
                 resetClient(c);
         }

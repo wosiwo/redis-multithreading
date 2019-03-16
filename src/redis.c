@@ -2190,7 +2190,7 @@ void initServer() {
         {
             redisPanic("pthread_create[rdReactorThread_loop] failed.");
         }
-        redisLog(REDIS_VERBOSE,"pthread_create  %d pidt %d \n",i,pidt);
+        redisLog(REDIS_WARNING,"pthread_create  %d pidt %d ",i,pidt);
     }
     //创建一个worker线程来执行客户端命令
     if (pthread_create(&pidt, NULL,rdWorkerThread_loop, 0) < 0)
