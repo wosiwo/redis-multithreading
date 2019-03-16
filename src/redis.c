@@ -32,6 +32,7 @@
 #include "slowlog.h"
 #include "bio.h"
 #include "reactor.c"
+#include "worker.c"
 
 #include <time.h>
 #include <signal.h>
@@ -1882,7 +1883,7 @@ void initServerConfig() {
     server.watchdog_period = 0;
 
     //reactor 线程数量
-    server.reactorNum = reactorNum
+    server.reactorNum = reactorNum;
 }
 
 /* This function will try to raise the max number of open files accordingly to
@@ -2061,9 +2062,10 @@ void resetServerStats(void) {
 int tcpConnHandle(aeEventLoop *el, int fd, void *privdata, int mask){
     // 获取连接connfd
     int connfd;
+    aeEventLoop *reactor_el;
     connfd = getTcpConnfd(el,fd,privdata,mask);
-    int reactor_id = connfd%REACTOR_NUM; //连接fd对REACTOR_NUM取余，决定抛给哪个reactor线程
-    int reactor_el = server.reactors[reactor_id].el;    //获取指定线程的事件驱动器
+    int reactor_id = connfd%reactorNum; //连接fd对REACTOR_NUM取余，决定抛给哪个reactor线程
+    reactor_el = server.reactors[reactor_id].el;    //获取指定线程的事件驱动器
 
     //将connfd加入到epoll事件中，同时绑定回调函数reactorSend2Worker
     //reactor线程的事件驱动器被触发后，AE_READABLE类型的事件会被分发到reactorSend2Worker函数
@@ -2181,18 +2183,21 @@ void initServer() {
 
     //创建多个reactor线程来进行网络IO
     pthread_t pidt;
+    int i;
     for (i = 0; i < reactorNum; i++)
     {
         if (pthread_create(&pidt, NULL,rdReactorThread_loop, i) < 0)
         {
-            redisPanic("pthread_create[rdReactorThread_loop] failed. Error: %s[%d]", strerror(errno), errno);
+            redisPanic("pthread_create[rdReactorThread_loop] failed.");
         }
         redisLog(REDIS_VERBOSE,"pthread_create  %d pidt %d \n",i,pidt);
     }
     //创建一个worker线程来执行客户端命令
     if (pthread_create(&pidt, NULL,rdWorkerThread_loop, 0) < 0)
     {
-        redisPanic("pthread_create[rdWorkerThread_loop] failed. Error: %s[%d]", strerror(errno), errno);
+//        vsprintf();
+//        redisPanic(sprint("pthread_create[rdWorkerThread_loop] failed. Error: %s[%d]", strerror(errno), errno));
+        redisPanic("pthread_create[rdWorkerThread_loop] failed. ");
     }
 
     /* Create an event handler for accepting new connections in TCP and Unix

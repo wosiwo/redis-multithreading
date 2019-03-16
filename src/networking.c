@@ -816,7 +816,7 @@ void dispatch2Reactor(int connfd,redisClient *c){
 /*
  * 获取 TCP 连接处理器
  */
-void getTcpConnfd(aeEventLoop *el, int fd, void *privdata, int mask) {
+int getTcpConnfd(aeEventLoop *el, int fd, void *privdata, int mask) {
     int cport, cfd, max = MAX_ACCEPTS_PER_CALL;
     char cip[REDIS_IP_STR_LEN];
     REDIS_NOTUSED(el);

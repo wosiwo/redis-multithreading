@@ -2,11 +2,12 @@
 // Created by onceme on 2019/3/16.
 //
 #include "redis.h"
+#include "ae.h"
 
 
 
 //接收reactor线程触发的读事件
-int workerReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
+void workerReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     redisClient *c = (redisClient*) privdata;
 
     processInputBuffer(c);  //执行客户端操作命令
@@ -22,9 +23,7 @@ int workerReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
  * ReactorThread main Loop
  * 线程循环内容
  */
-int rdWorkerThread_loop(int worker_id) {
-    int pipe_fd;
-    int sockfd;
+void rdWorkerThread_loop(int worker_id) {
     // 线程中的事件状态
     aeEventLoop *el;
 
@@ -34,7 +33,7 @@ int rdWorkerThread_loop(int worker_id) {
     el = aeCreateEventLoop(REDIS_MAX_CLIENTS);
 
 
-    printf("rdReactorThread_loop reactor_id %d el %d \n", reactor_id, el);
+    redisLog(REDIS_VERBOSE,"rdWorkerThread_loop worker_id %d \n", worker_id);
 
     //存储线程相关信息
     server.worker[worker_id].pidt = thread_id;
