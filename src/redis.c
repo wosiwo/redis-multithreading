@@ -31,6 +31,7 @@
 #include "cluster.h"
 #include "slowlog.h"
 #include "bio.h"
+#include "reactor.c"
 
 #include <time.h>
 #include <signal.h>
@@ -380,6 +381,7 @@ void redisLogRaw(int level, const char *msg) {
 /* Like redisLogRaw() but with printf-alike support. This is the function that
  * is used across the code. The raw version is only used in order to dump
  * the INFO output on crash. */
+//mt:考虑是否需要独立线程记日志
 void redisLog(int level, const char *fmt, ...) {
     va_list ap;
     char msg[REDIS_MAX_LOGMSG_LEN];
@@ -1878,6 +1880,9 @@ void initServerConfig() {
     server.assert_line = 0;
     server.bug_report_start = 0;
     server.watchdog_period = 0;
+
+    //reactor 线程数量
+    server.reactorNum = reactorNum
 }
 
 /* This function will try to raise the max number of open files accordingly to
@@ -2047,6 +2052,27 @@ void resetServerStats(void) {
     server.ops_sec_last_sample_ops = 0;
 }
 
+
+/**
+ * 连接事件回调(暂时弃用)
+ * 由于redis代码在创建connfd到实际读取数据直接有一些操作是非线程安全的(将client加到server.clients队列)，
+ * @return
+ */
+int tcpConnHandle(aeEventLoop *el, int fd, void *privdata, int mask){
+    // 获取连接connfd
+    int connfd;
+    connfd = getTcpConnfd(el,fd,privdata,mask);
+    int reactor_id = connfd%REACTOR_NUM; //连接fd对REACTOR_NUM取余，决定抛给哪个reactor线程
+    int reactor_el = server.reactors[reactor_id].el;    //获取指定线程的事件驱动器
+
+    //将connfd加入到epoll事件中，同时绑定回调函数reactorSend2Worker
+    //reactor线程的事件驱动器被触发后，AE_READABLE类型的事件会被分发到reactorSend2Worker函数
+    aeCreateFileEvent(reactor_el, connfd, AE_READABLE,
+                      reactorReadHandle,NULL);
+}
+
+
+
 void initServer() {
     int j;
 
@@ -2153,13 +2179,29 @@ void initServer() {
         exit(1);
     }
 
+    //创建多个reactor线程来进行网络IO
+    pthread_t pidt;
+    for (i = 0; i < reactorNum; i++)
+    {
+        if (pthread_create(&pidt, NULL,rdReactorThread_loop, i) < 0)
+        {
+            redisPanic("pthread_create[rdReactorThread_loop] failed. Error: %s[%d]", strerror(errno), errno);
+        }
+        redisLog(REDIS_VERBOSE,"pthread_create  %d pidt %d \n",i,pidt);
+    }
+    //创建一个worker线程来执行客户端命令
+    if (pthread_create(&pidt, NULL,rdWorkerThread_loop, 0) < 0)
+    {
+        redisPanic("pthread_create[rdWorkerThread_loop] failed. Error: %s[%d]", strerror(errno), errno);
+    }
+
     /* Create an event handler for accepting new connections in TCP and Unix
      * domain sockets. */
     // 为 TCP 连接关联连接应答（accept）处理器
     // 用于接受并应答客户端的 connect() 调用
     for (j = 0; j < server.ipfd_count; j++) {
         if (aeCreateFileEvent(server.el, server.ipfd[j], AE_READABLE,
-            acceptTcpHandler,NULL) == AE_ERR)
+                              acceptTcpHandler,NULL) == AE_ERR)
             {
                 redisPanic(
                     "Unrecoverable error creating server.ipfd file event.");

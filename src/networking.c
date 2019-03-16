@@ -94,13 +94,13 @@ redisClient *createClient(int fd) {
         if (server.tcpkeepalive)
             anetKeepAlive(NULL,fd,server.tcpkeepalive);
         // 绑定读事件到事件 loop （开始接收命令请求）
-        if (aeCreateFileEvent(server.el,fd,AE_READABLE,
-            readQueryFromClient, c) == AE_ERR)
-        {
-            close(fd);
-            zfree(c);
-            return NULL;
-        }
+//        if (aeCreateFileEvent(server.el,fd,AE_READABLE,
+//            readQueryFromClient, c) == AE_ERR)
+//        {
+//            close(fd);
+//            zfree(c);
+//            return NULL;
+//        }
     }
 
     // 初始化各个属性
@@ -176,6 +176,9 @@ redisClient *createClient(int fd) {
     c->peerid = NULL;
     listSetFreeMethod(c->pubsub_patterns,decrRefCountVoid);
     listSetMatchMethod(c->pubsub_patterns,listMatchObjects);
+
+    //绑定事件驱动器
+    c->reactor_el = server.el;  //兼容非客户端请求连接，默认绑定主线程的事件循环
     // 如果不是伪客户端，那么添加到服务器的客户端链表中
     if (fd != -1) listAddNodeTail(server.clients,c);
     // 初始化客户端的事务状态
@@ -231,7 +234,9 @@ int prepareClientToWrite(redisClient *c) {
     if (c->bufpos == 0 && listLength(c->reply) == 0 &&
         (c->replstate == REDIS_REPL_NONE ||
          c->replstate == REDIS_REPL_ONLINE) &&
-        aeCreateFileEvent(server.el, c->fd, AE_WRITABLE,
+//        aeCreateFileEvent(server.el, c->fd, AE_WRITABLE,
+        //使用客户端绑定的事件驱动器
+        aeCreateFileEvent(c->reactor_el, c->fd, AE_WRITABLE,
         sendReplyToClient, c) == AE_ERR) return REDIS_ERR;
 
     return REDIS_OK;
@@ -786,6 +791,49 @@ static void acceptCommonHandler(int fd, int flags) {
 
     // 设置 FLAG
     c->flags |= flags;
+    //避开无法保证线程安全的操作后再绑定连接connfd到reactor线程
+    dispatch2Reactor(fd,c);
+
+}
+void dispatch2Reactor(int connfd,redisClient *c){
+    int reactor_id = connfd%server.reactorNum; //连接fd对REACTOR_NUM取余，决定抛给哪个reactor线程
+    int reactor_el = server.reactors[reactor_id].el;    //获取指定线程的事件驱动器
+
+    c->reactor_el = reactor_el; //绑定线程事件循环
+
+    //将connfd加入到指定reactor线程的事件循环中
+    //reactor线程的事件驱动器被触发后，AE_READABLE类型的事件会被分发到reactorReadHandle函数
+//    if (aeCreateFileEvent(server.worker[0].el,fd,AE_READABLE,
+    if (aeCreateFileEvent(reactor_el,fd,AE_READABLE,
+                          reactorReadHandle, c) == AE_ERR)
+    {
+        close(fd);
+        zfree(c);
+        return NULL;
+    }
+}
+
+/*
+ * 获取 TCP 连接处理器
+ */
+void getTcpConnfd(aeEventLoop *el, int fd, void *privdata, int mask) {
+    int cport, cfd, max = MAX_ACCEPTS_PER_CALL;
+    char cip[REDIS_IP_STR_LEN];
+    REDIS_NOTUSED(el);
+    REDIS_NOTUSED(mask);
+    REDIS_NOTUSED(privdata);
+
+    while(max--) {
+        // accept 客户端连接
+        cfd = anetTcpAccept(server.neterr, fd, cip, sizeof(cip), &cport);
+        if (cfd == ANET_ERR) {
+            if (errno != EWOULDBLOCK)
+                redisLog(REDIS_WARNING,
+                         "Accepting client connection: %s", server.neterr);
+//            return;
+        }
+        return cfd;
+    }
 }
 
 /* 
@@ -1553,7 +1601,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     REDIS_NOTUSED(mask);
 
     // 设置服务器的当前客户端
-    server.current_client = c;
+//    server.current_client = c;  //TODO 考虑线程安全
     
     // 读入长度（默认为 16 MB）
     readlen = REDIS_IOBUF_LEN;
@@ -1628,9 +1676,9 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
 
     // 从查询缓存重读取内容，创建参数，并执行命令
     // 函数会执行到缓存中的所有内容都被处理完为止
-    processInputBuffer(c);
+//    processInputBuffer(c);        //读取请求后，改在worker线程实际执行客户端操作命令
 
-    server.current_client = NULL;
+//    server.current_client = NULL; //需要考虑多线程并发的情况，暂时注释
 }
 
 // 获取客户端目前最大的一块缓冲区的大小

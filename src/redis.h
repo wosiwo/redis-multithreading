@@ -447,9 +447,13 @@ struct evictionPoolEntry {
     sds key;                    /* Key name. */
 };
 
+int rdReactorThread_loop(int reactor_id);   //IO线程
+
+
 /* Redis database representation. There are multiple databases identified
  * by integers from 0 (the default database) up to the max configured
  * database. The database number is the 'id' field in the structure. */
+
 typedef struct redisDb {
 
     // 数据库键空间，保存着数据库中的所有键值对
@@ -680,6 +684,9 @@ typedef struct redisClient {
     // 回复缓冲区
     char buf[REDIS_REPLY_CHUNK_BYTES];
 
+    //当前client所对应的reactor线程事件驱动
+    aeEventLoop *reactor_el;
+
 } redisClient;
 
 // 服务器的保存条件（BGSAVE 自动执行的条件）
@@ -824,6 +831,13 @@ typedef struct redisOpArray {
  *----------------------------------------------------------------------------*/
 
 struct clusterState;
+int reactorNum = 6; //reactor线程数量
+
+//reactor线程信息
+typedef struct _thReactor{
+    pthread_t pidt;
+    aeEventLoop *el;      //reactor线程中的事件驱动器(结构体封装)
+} thReactor;
 
 struct redisServer {
 
@@ -1318,6 +1332,15 @@ struct redisServer {
     int assert_line;
     int bug_report_start; /* True if bug report header was already logged. */
     int watchdog_period;  /* Software watchdog period in ms. 0 = off */
+
+
+
+    //thReactor 保存reactor线程信息
+    thReactor  reactors[reactorNum];
+    // 事件状态
+    thReactor worker[1];
+    //线程数量
+    int reactorNum
 };
 
 /*
