@@ -3,7 +3,7 @@
 //
 #include "redis.h"
 #include "ae.h"
-
+#include "worker.h"
 
 
 //接收reactor线程触发的读事件

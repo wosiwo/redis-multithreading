@@ -3,6 +3,7 @@
 //
 #include "ae.h"
 #include "redis.h"
+#include "worker.h"
 
 extern struct redisServer server;
 

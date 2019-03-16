@@ -447,12 +447,6 @@ struct evictionPoolEntry {
     sds key;                    /* Key name. */
 };
 
-void rdReactorThread_loop(int reactor_id);   //IO线程
-void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask);
-
-void workerReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask);
-void rdWorkerThread_loop(int worker_id);
-
 /* Redis database representation. There are multiple databases identified
  * by integers from 0 (the default database) up to the max configured
  * database. The database number is the 'id' field in the structure. */
@@ -834,14 +828,13 @@ typedef struct redisOpArray {
  *----------------------------------------------------------------------------*/
 
 struct clusterState;
-int reactorNum = 6; //reactor线程数量
 
 //reactor线程信息
 typedef struct _thReactor{
     pthread_t pidt;
     aeEventLoop *el;      //reactor线程中的事件驱动器(结构体封装)
 } thReactor;
-#define MAX_REACTOR_NUM 50
+#define MAX_REACTOR_NUM 6
 
 struct redisServer {
 

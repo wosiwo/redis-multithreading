@@ -28,6 +28,8 @@
  */
 
 #include "redis.h"
+#include "reactor.h"
+#include "worker.h"
 #include <sys/uio.h>
 #include <math.h>
 
@@ -750,6 +752,22 @@ void copyClientOutputBuffer(redisClient *dst, redisClient *src) {
     dst->reply_bytes = src->reply_bytes;
 }
 
+void dispatch2Reactor(int connfd,redisClient *c){
+    int reactor_id = connfd%server.reactorNum; //连接fd对REACTOR_NUM取余，决定抛给哪个reactor线程
+    int reactor_el = server.reactors[reactor_id].el;    //获取指定线程的事件驱动器
+
+    c->reactor_el = reactor_el; //绑定线程事件循环
+
+    //将connfd加入到指定reactor线程的事件循环中
+    //reactor线程的事件驱动器被触发后，AE_READABLE类型的事件会被分发到reactorReadHandle函数
+//    if (aeCreateFileEvent(server.worker[0].el,fd,AE_READABLE,
+    if (aeCreateFileEvent(reactor_el,connfd,AE_READABLE,
+                          reactorReadHandle, c) == AE_ERR)
+    {
+        close(connfd);
+        zfree(c);
+    }
+}
 /*
  * TCP 连接 accept 处理器
  */
@@ -794,23 +812,6 @@ static void acceptCommonHandler(int fd, int flags) {
     //避开无法保证线程安全的操作后再绑定连接connfd到reactor线程
     dispatch2Reactor(fd,c);
 
-}
-void dispatch2Reactor(int connfd,redisClient *c){
-    int reactor_id = connfd%server.reactorNum; //连接fd对REACTOR_NUM取余，决定抛给哪个reactor线程
-    int reactor_el = server.reactors[reactor_id].el;    //获取指定线程的事件驱动器
-
-    c->reactor_el = reactor_el; //绑定线程事件循环
-
-    //将connfd加入到指定reactor线程的事件循环中
-    //reactor线程的事件驱动器被触发后，AE_READABLE类型的事件会被分发到reactorReadHandle函数
-//    if (aeCreateFileEvent(server.worker[0].el,fd,AE_READABLE,
-    if (aeCreateFileEvent(reactor_el,fd,AE_READABLE,
-                          reactorReadHandle, c) == AE_ERR)
-    {
-        close(fd);
-        zfree(c);
-        return NULL;
-    }
 }
 
 /*

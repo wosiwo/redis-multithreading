@@ -71,6 +71,8 @@
 /* Macros */
 #define AE_NOTUSED(V) ((void) V)
 
+#include <time.h>
+
 /*
  * 事件处理器状态
  */
