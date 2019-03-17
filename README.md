@@ -1,8 +1,8 @@
-redis3.0实现多线程
-============================
+# redis3.0实现多线程
 implement mutithread in redis3.0
 
-#### 新增的特性
+
+## 新增的特性
 
 * 参考了阿里云多线程实现方式
 * 新增多个reactor线程(即IO线程)
@@ -12,7 +12,7 @@ implement mutithread in redis3.0
 
 
 
-#### TODO
+## TODO
 
 * 支持多个worker线程
 * 压测，找出瓶颈，向C10M方向优化
