@@ -2054,27 +2054,6 @@ void resetServerStats(void) {
 }
 
 
-/**
- * 连接事件回调(暂时弃用)
- * 由于redis代码在创建connfd到实际读取数据直接有一些操作是非线程安全的(将client加到server.clients队列)，
- * @return
- */
-int tcpConnHandle(aeEventLoop *el, int fd, void *privdata, int mask){
-    // 获取连接connfd
-    int connfd;
-    aeEventLoop *reactor_el;
-    connfd = getTcpConnfd(el,fd,privdata,mask);
-    int reactor_id = connfd%server.reactorNum; //连接fd对REACTOR_NUM取余，决定抛给哪个reactor线程
-    reactor_el = server.reactors[reactor_id].el;    //获取指定线程的事件驱动器
-
-    //将connfd加入到epoll事件中，同时绑定回调函数reactorSend2Worker
-    //reactor线程的事件驱动器被触发后，AE_READABLE类型的事件会被分发到reactorSend2Worker函数
-    aeCreateFileEvent(reactor_el, connfd, AE_READABLE,
-                      reactorReadHandle,NULL);
-}
-
-
-
 void initServer() {
     int j;
 
@@ -2186,14 +2165,15 @@ void initServer() {
     int i;
     for (i = 0; i < server.reactorNum; i++)
     {
-        if (pthread_create(&pidt, NULL,rdReactorThread_loop, i) < 0)
+        if (pthread_create(&pidt, NULL,rdReactorThread_loop, &i) < 0)
         {
             redisPanic("pthread_create[rdReactorThread_loop] failed.");
         }
-        redisLog(REDIS_WARNING,"pthread_create  %d pidt %d ",i,pidt);
+        redisLog(REDIS_WARNING,"pthread_create  %d",i);
     }
     //创建一个worker线程来执行客户端命令
-    if (pthread_create(&pidt, NULL,rdWorkerThread_loop, 0) < 0)
+    i=0;
+    if (pthread_create(&pidt, NULL,rdWorkerThread_loop, &i) < 0)
     {
 //        vsprintf();
 //        redisPanic(sprint("pthread_create[rdWorkerThread_loop] failed. Error: %s[%d]", strerror(errno), errno));
