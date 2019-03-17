@@ -10,5 +10,5 @@
 
 
 void workerReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask);
-void rdWorkerThread_loop(int worker_id);
+void rdWorkerThread_loop(int *worker_id);
 

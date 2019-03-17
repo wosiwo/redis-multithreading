@@ -7,5 +7,5 @@
 
 #endif //REDIS_3_0_ANNOTATED_REACTOR_H
 
-void rdReactorThread_loop(int reactor_id);   //IO线程
+void rdReactorThread_loop(int *reactor_id);   //IO线程
 void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask);

@@ -29,7 +29,7 @@ void workerReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
  * ReactorThread main Loop
  * 线程循环内容
  */
-void rdWorkerThread_loop(int worker_id) {
+void rdWorkerThread_loop(int *worker_id) {
     // 线程中的事件状态
     aeEventLoop *el;
 
@@ -39,11 +39,11 @@ void rdWorkerThread_loop(int worker_id) {
     el = aeCreateEventLoop(REDIS_MAX_CLIENTS);
 
 
-    redisLog(REDIS_WARNING,"rdWorkerThread_loop worker_id %d ", worker_id);
+    redisLog(REDIS_WARNING,"rdWorkerThread_loop worker_id %d ", *worker_id);
 
     //存储线程相关信息
-    server.worker[worker_id].pidt = thread_id;
-    server.worker[worker_id].el = el;
+    server.worker[*worker_id].pidt = thread_id;
+    server.worker[*worker_id].el = el;
 
     //进入事件循环
     aeMain(el);
