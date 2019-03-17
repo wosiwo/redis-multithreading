@@ -1226,7 +1226,7 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
         c->sentlen = 0;
 
         // 删除 write handler
-        aeDeleteFileEvent(server.el,c->fd,AE_WRITABLE);
+        aeDeleteFileEvent(c->reactor_el,c->fd,AE_WRITABLE);
 
         /* Close connection after entire reply has been sent. */
         // 如果指定了写入之后关闭客户端 FLAG ，那么关闭客户端
