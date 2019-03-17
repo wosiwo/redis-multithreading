@@ -233,7 +233,7 @@ int prepareClientToWrite(redisClient *c) {
     if (c->fd <= 0) return REDIS_ERR; /* Fake client */
 
     // 一般情况，为客户端套接字安装写处理器到事件循环
-    redisLog(REDIS_WARNING,"prepareClientToWrite  reactor_id  %d connfd %d",c->reactor_id,c->fd);
+//    redisLog(REDIS_WARNING,"prepareClientToWrite  reactor_id  %d connfd %d",c->reactor_id,c->fd);
 
     if (c->bufpos == 0 && listLength(c->reply) == 0 &&
         (c->replstate == REDIS_REPL_NONE ||
@@ -1114,7 +1114,8 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     REDIS_NOTUSED(el);
     REDIS_NOTUSED(mask);
 
-    redisLog(REDIS_WARNING, "sendReplyToClient reactor_id %d nread %s",c->reactor_id,c->buf+c->sentlen);
+//    redisLog(REDIS_WARNING, "sendReplyToClient reactor_id %d nread %s",c->reactor_id,c->buf+c->sentlen);
+    redisLog(REDIS_WARNING, "sendReplyToClient reactor_id %d ",c->reactor_id);
 
     // 一直循环，直到回复缓冲区为空
     // 或者指定条件满足为止

@@ -2191,7 +2191,7 @@ long long replicationGetSlaveOffset(void) {
 /* Replication cron funciton, called 1 time per second. */
 // 复制 cron 函数，每秒调用一次
 void replicationCron(void) {
-    redisLog(REDIS_WARNING,"replicationCron");
+//    redisLog(REDIS_WARNING,"replicationCron");
 
     /* Non blocking connection timeout? */
     // 尝试连接到主服务器，但超时
