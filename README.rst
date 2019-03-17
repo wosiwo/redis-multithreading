@@ -13,6 +13,7 @@ implement mutithread in redis3.0
 
 
 #### TODO
+
 * 支持多个worker线程
 * 压测，找出瓶颈，向C10M方向优化
 * 加上磁盘搜索功能，让redis不再局限与一个内存数据库(待定)
