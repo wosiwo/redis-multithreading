@@ -53,6 +53,7 @@
 #include <sys/resource.h>
 #include <sys/utsname.h>
 #include <locale.h>
+#include <unistd.h>
 
 /* Our shared "common" objects */
 

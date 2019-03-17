@@ -789,14 +789,16 @@ void sendBulkToSlave(aeEventLoop *el, int fd, void *privdata, int mask) {
         close(slave->repldbfd);
         slave->repldbfd = -1;
         // 删除之前绑定的写事件处理器
-        aeDeleteFileEvent(server.el,slave->fd,AE_WRITABLE);
+//        aeDeleteFileEvent(server.el,slave->fd,AE_WRITABLE);
+        aeDeleteFileEvent(slave->reactor_el,slave->fd,AE_WRITABLE);
         // 将状态更新为 REDIS_REPL_ONLINE
         slave->replstate = REDIS_REPL_ONLINE;
         // 更新响应时间
         slave->repl_ack_time = server.unixtime;
         // 创建向从服务器发送命令的写事件处理器
         // 将保存并发送 RDB 期间的回复全部发送给从服务器
-        if (aeCreateFileEvent(server.el, slave->fd, AE_WRITABLE,
+//        if (aeCreateFileEvent(server.el, slave->fd, AE_WRITABLE,
+        if (aeCreateFileEvent(slave->reactor_el, slave->fd, AE_WRITABLE,
             sendReplyToClient, slave) == AE_ERR) {
             redisLog(REDIS_WARNING,"Unable to register writable event for slave bulk transfer: %s", strerror(errno));
             freeClient(slave);
@@ -868,10 +870,11 @@ void updateSlavesWaitingBgsave(int bgsaveerr) {
                 (unsigned long long) slave->repldbsize);
 
             // 清空之前的写事件处理器
-            aeDeleteFileEvent(server.el,slave->fd,AE_WRITABLE);
+//            aeDeleteFileEvent(server.el,slave->fd,AE_WRITABLE);
+            aeDeleteFileEvent(slave->reactor_el,slave->fd,AE_WRITABLE);
             // 将 sendBulkToSlave 安装为 slave 的写事件处理器
             // 它用于将 RDB 文件发送给 slave
-            if (aeCreateFileEvent(server.el, slave->fd, AE_WRITABLE, sendBulkToSlave, slave) == AE_ERR) {
+            if (aeCreateFileEvent(slave->reactor_el, slave->fd, AE_WRITABLE, sendBulkToSlave, slave) == AE_ERR) {
                 freeClient(slave);
                 continue;
             }
@@ -1141,6 +1144,7 @@ char *sendSynchronousCommand(int fd, ...) {
     }
     cmd = sdscatlen(cmd,"\r\n",2);
 
+//    redisLog(REDIS_WARNING,'sendSynchronousCommand');
     /* Transfer command to the server. */
     // 发送命令到主服务器
     if (syncWrite(fd,cmd,sdslen(cmd),server.repl_syncio_timeout*1000) == -1) {
@@ -2187,6 +2191,7 @@ long long replicationGetSlaveOffset(void) {
 /* Replication cron funciton, called 1 time per second. */
 // 复制 cron 函数，每秒调用一次
 void replicationCron(void) {
+    redisLog(REDIS_WARNING,"replicationCron");
 
     /* Non blocking connection timeout? */
     // 尝试连接到主服务器，但超时
@@ -2224,6 +2229,8 @@ void replicationCron(void) {
     // 尝试连接主服务器
     if (server.repl_state == REDIS_REPL_CONNECT) {
         redisLog(REDIS_NOTICE,"Connecting to MASTER %s:%d",
+            server.masterhost, server.masterport);
+        redisLog(REDIS_WARNING,"Connecting to MASTER %s:%d",
             server.masterhost, server.masterport);
         if (connectWithMaster() == REDIS_OK) {
             redisLog(REDIS_NOTICE,"MASTER <-> SLAVE sync started");

@@ -233,7 +233,7 @@ int prepareClientToWrite(redisClient *c) {
     if (c->fd <= 0) return REDIS_ERR; /* Fake client */
 
     // 一般情况，为客户端套接字安装写处理器到事件循环
-    redisLog(REDIS_WARNING,"prepareClientToWrite  c->bufpos %d listLength(c->reply) %d c->replstate %d",c->bufpos,listLength(c->reply),c->replstate);
+    redisLog(REDIS_WARNING,"prepareClientToWrite  reactor_id  %d connfd %d",c->reactor_id,c->fd);
 
     if (c->bufpos == 0 && listLength(c->reply) == 0 &&
         (c->replstate == REDIS_REPL_NONE ||
@@ -1002,6 +1002,9 @@ void freeClient(redisClient *c) {
      * accumulated arguments. */
     // 关闭套接字，并从事件处理器中删除该套接字的事件
     if (c->fd != -1) {
+        redisLog(REDIS_WARNING,'freeClient connfd %d',c->fd);
+//        aeDeleteFileEvent(server.el,c->fd,AE_READABLE);
+//        aeDeleteFileEvent(server.el,c->fd,AE_WRITABLE);
         aeDeleteFileEvent(c->reactor_el,c->fd,AE_READABLE);
         aeDeleteFileEvent(c->reactor_el,c->fd,AE_WRITABLE);
         close(c->fd);
