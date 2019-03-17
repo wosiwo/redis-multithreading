@@ -859,6 +859,7 @@ void updateSlavesWaitingBgsave(int bgsaveerr) {
                 redisLog(REDIS_WARNING,"SYNC failed. Can't open/stat DB after BGSAVE: %s", strerror(errno));
                 continue;
             }
+            redisLog(REDIS_WARNING,"slave->repldbfd %d",slave->repldbfd);
 
             // 设置偏移量，各种值
             slave->repldboff = 0;
@@ -1070,7 +1071,8 @@ void readSyncBulkPayload(aeEventLoop *el, int fd, void *privdata, int mask) {
 
         // 将主服务器设置成一个 redis client
         // 注意 createClient 会为主服务器绑定事件，为接下来接收命令做好准备
-        server.master = createClient(server.repl_transfer_s);
+        int use_reactor = 0;    //是否客户端连接，是的话由reactor线程来监听，否则在主线程监听
+        server.master = createClient(server.repl_transfer_s, use_reactor);
         // 标记这个客户端为主服务器
         server.master->flags |= REDIS_MASTER;
         // 标记它为已验证身份

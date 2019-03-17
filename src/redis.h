@@ -684,6 +684,7 @@ typedef struct redisClient {
     //当前client所对应的reactor线程事件驱动
     aeEventLoop *reactor_el;
     int reactor_id; //记录被分配的reactor线程id
+    int use_reactor; //是否使用了reactor线程
 
 } redisClient;
 
@@ -1549,7 +1550,7 @@ size_t redisPopcount(void *s, long count);
 void redisSetProcTitle(char *title);
 
 /* networking.c -- Networking and Client related operations */
-redisClient *createClient(int fd);
+redisClient *createClient(int fd, int use_reactor);
 void closeTimedoutClients(void);
 void freeClient(redisClient *c);
 void freeClientAsync(redisClient *c);

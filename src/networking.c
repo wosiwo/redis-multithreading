@@ -74,7 +74,7 @@ int listMatchObjects(void *a, void *b) {
 /*
  * 创建一个新客户端
  */
-redisClient *createClient(int fd) {
+redisClient *createClient(int fd,int use_reactor) {
 
     // 分配空间
     redisClient *c = zmalloc(sizeof(redisClient));
@@ -96,13 +96,15 @@ redisClient *createClient(int fd) {
         if (server.tcpkeepalive)
             anetKeepAlive(NULL,fd,server.tcpkeepalive);
         // 绑定读事件到事件 loop （开始接收命令请求）
-//        if (aeCreateFileEvent(server.el,fd,AE_READABLE,
-//            readQueryFromClient, c) == AE_ERR)
-//        {
-//            close(fd);
-//            zfree(c);
-//            return NULL;
-//        }
+        // 客户端请求时由reactor处理，主从同步才会用到(slave创建到master的连接)
+        //replication.c:1078  server.master = createClient(server.repl_transfer_s,use_reactor);
+        if (0==use_reactor && aeCreateFileEvent(server.el,fd,AE_READABLE,
+            readQueryFromClient, c) == AE_ERR)
+        {
+            close(fd);
+            zfree(c);
+            return NULL;
+        }
     }
 
     // 初始化各个属性
@@ -181,6 +183,7 @@ redisClient *createClient(int fd) {
 
     //绑定事件驱动器
     c->reactor_el = server.el;  //兼容非客户端请求连接，默认绑定主线程的事件循环
+    c->use_reactor = use_reactor;  //是否使用了reactor线程
     // 如果不是伪客户端，那么添加到服务器的客户端链表中
     if (fd != -1) listAddNodeTail(server.clients,c);
     // 初始化客户端的事务状态
@@ -788,7 +791,8 @@ static void acceptCommonHandler(int fd, int flags) {
 
     // 创建客户端
     redisClient *c;
-    if ((c = createClient(fd)) == NULL) {
+    int user_reactor = 1;
+    if ((c = createClient(fd,user_reactor)) == NULL) {
         redisLog(REDIS_WARNING,
             "Error registering fd event for the new client: %s (fd=%d)",
             strerror(errno),fd);
@@ -1002,7 +1006,7 @@ void freeClient(redisClient *c) {
      * accumulated arguments. */
     // 关闭套接字，并从事件处理器中删除该套接字的事件
     if (c->fd != -1) {
-        redisLog(REDIS_WARNING,'freeClient connfd %d',c->fd);
+//        redisLog(REDIS_WARNING,'freeClient connfd %d',c->fd);
 //        aeDeleteFileEvent(server.el,c->fd,AE_READABLE);
 //        aeDeleteFileEvent(server.el,c->fd,AE_WRITABLE);
         aeDeleteFileEvent(c->reactor_el,c->fd,AE_READABLE);
@@ -1702,7 +1706,9 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
 
     // 从查询缓存重读取内容，创建参数，并执行命令
     // 函数会执行到缓存中的所有内容都被处理完为止
-//    processInputBuffer(c);        //读取请求后，改在worker线程实际执行客户端操作命令
+    if(0==c->use_reactor){  //不使用reactor线程时(非客户端请求),直接执行命令
+        processInputBuffer(c);
+    }
 
 //    server.current_client = NULL; //需要考虑多线程并发的情况，暂时注释
 }

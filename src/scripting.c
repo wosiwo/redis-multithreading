@@ -871,7 +871,7 @@ void scriptingInit(void) {
      * 伪客户端只需要创建一次即可，因为这个函数会被 scriptingReset() 调用。
      */
     if (server.lua_client == NULL) {
-        server.lua_client = createClient(-1);
+        server.lua_client = createClient(-1,0);
         server.lua_client->flags |= REDIS_LUA_CLIENT;
     }
 
