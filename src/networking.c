@@ -766,6 +766,7 @@ void dispatch2Reactor(int connfd,redisClient *c){
 
 
     c->reactor_el = reactor_el; //绑定线程事件循环
+    c->reactor_id = reactor_id; //绑定线程事件循环
 
     //将connfd加入到指定reactor线程的事件循环中
     //reactor线程的事件驱动器被触发后，AE_READABLE类型的事件会被分发到reactorReadHandle函数
@@ -1001,8 +1002,8 @@ void freeClient(redisClient *c) {
      * accumulated arguments. */
     // 关闭套接字，并从事件处理器中删除该套接字的事件
     if (c->fd != -1) {
-        aeDeleteFileEvent(server.el,c->fd,AE_READABLE);
-        aeDeleteFileEvent(server.el,c->fd,AE_WRITABLE);
+        aeDeleteFileEvent(c->reactor_el,c->fd,AE_READABLE);
+        aeDeleteFileEvent(c->reactor_el,c->fd,AE_WRITABLE);
         close(c->fd);
     }
 
@@ -1109,6 +1110,8 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     robj *o;
     REDIS_NOTUSED(el);
     REDIS_NOTUSED(mask);
+
+    redisLog(REDIS_WARNING, "sendReplyToClient reactor_id %d nread %s",c->reactor_id,c->buf+c->sentlen);
 
     // 一直循环，直到回复缓冲区为空
     // 或者指定条件满足为止
@@ -1613,6 +1616,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     size_t qblen;
     REDIS_NOTUSED(el);
     REDIS_NOTUSED(mask);
+    redisLog(REDIS_WARNING, "readQueryFromClient");
 
     // 设置服务器的当前客户端
 //    server.current_client = c;  //TODO 考虑线程安全
@@ -1660,11 +1664,15 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
         freeClient(c);
         return;
     }
+    redisLog(REDIS_WARNING, "reactor_id %d nread %d",c->reactor_id,nread);
+//    redisLog(REDIS_WARNING, "nread %s",c->querybuf);
+
 
     if (nread) {
         // 根据内容，更新查询缓冲区（SDS） free 和 len 属性
         // 并将 '\0' 正确地放到内容的最后
         sdsIncrLen(c->querybuf,nread);
+        redisLog(REDIS_WARNING, "reactor_id %d  nread %s",c->reactor_id,c->querybuf);
         // 记录服务器和客户端最后一次互动的时间
         c->lastinteraction = server.unixtime;
         // 如果客户端是 master 的话，更新它的复制偏移量

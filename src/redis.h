@@ -683,6 +683,7 @@ typedef struct redisClient {
 
     //当前client所对应的reactor线程事件驱动
     aeEventLoop *reactor_el;
+    int reactor_id; //记录被分配的reactor线程id
 
 } redisClient;
 

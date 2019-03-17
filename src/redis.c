@@ -2165,7 +2165,7 @@ void initServer() {
     int i;
     for (i = 0; i < server.reactorNum; i++)
     {
-        if (pthread_create(&pidt, NULL,rdReactorThread_loop, &i) < 0)
+        if (pthread_create(&pidt, NULL,rdReactorThread_loop, i) < 0)
         {
             redisPanic("pthread_create[rdReactorThread_loop] failed.");
         }
@@ -2173,7 +2173,7 @@ void initServer() {
     }
     //创建一个worker线程来执行客户端命令
     i=0;
-    if (pthread_create(&pidt, NULL,rdWorkerThread_loop, &i) < 0)
+    if (pthread_create(&pidt, NULL,rdWorkerThread_loop, i) < 0)
     {
 //        vsprintf();
 //        redisPanic(sprint("pthread_create[rdWorkerThread_loop] failed. Error: %s[%d]", strerror(errno), errno));
