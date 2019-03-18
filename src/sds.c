@@ -279,6 +279,7 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
  * After the call, the passed sds string is no longer valid and all the
  * references must be substituted with the new pointer returned by the call. */
 sds sdsRemoveFreeSpace(sds s) {
+    printf("sdsRemoveFreeSpace \n");
     struct sdshdr *sh;
 
     sh = (void*) (s-(sizeof(struct sdshdr)));
@@ -349,9 +350,16 @@ size_t sdsAllocSize(sds s) {
  * 复杂度
  *  T = O(1)
  */
-void sdsIncrLen(sds s, int incr) {
+void sdsIncrLen(sds s, int incr, int fd) {
     struct sdshdr *sh = (void*) (s-(sizeof(struct sdshdr)));
 
+    printf("sdsIncrLen sh->free %d incr %d connfd %d \n",sh->free,incr,fd);
+
+    if(sh->free<incr){
+        printf("\n\n \n");
+        printf("sdsIncrLen sh->free %d incr %d connfd %d \n",sh->free,incr,fd);
+
+    }
     // 确保 sds 空间足够
     assert(sh->free >= incr);
 

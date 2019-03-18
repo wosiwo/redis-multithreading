@@ -818,7 +818,7 @@ int hllSparseAdd(robj *o, unsigned char *ele, size_t elesize) {
      if (deltalen > 0 &&
          sdslen(o->ptr)+deltalen > server.hll_sparse_max_bytes) goto promote;
      if (deltalen && next) memmove(next+deltalen,next,end-next);
-     sdsIncrLen(o->ptr,deltalen);
+     sdsIncrLen(o->ptr,deltalen,0);
      memcpy(p,seq,seqlen);
      end += deltalen;
 
@@ -848,7 +848,7 @@ updated:
                 if (len <= HLL_SPARSE_VAL_MAX_LEN) {
                     HLL_SPARSE_VAL_SET(p+1,v1,len);
                     memmove(p,p+1,end-p);
-                    sdsIncrLen(o->ptr,-1);
+                    sdsIncrLen(o->ptr,-1,0);
                     end--;
                     /* After a merge we reiterate without incrementing 'p'
                      * in order to try to merge the just merged value with

@@ -1137,6 +1137,7 @@ int clientsCronHandleTimeout(redisClient *c) {
  * 函数总是返回 0 ，因为它不会中止客户端。
  */
 int clientsCronResizeQueryBuffer(redisClient *c) {
+    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer");
     size_t querybuf_size = sdsAllocSize(c->querybuf);
     time_t idletime = server.unixtime - c->lastinteraction;
 

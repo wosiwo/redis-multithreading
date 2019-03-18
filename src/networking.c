@@ -1519,7 +1519,7 @@ int processMultibulkBuffer(redisClient *c) {
                 (signed) sdslen(c->querybuf) == c->bulklen+2)
             {
                 c->argv[c->argc++] = createObject(REDIS_STRING,c->querybuf);
-                sdsIncrLen(c->querybuf,-2); /* remove CRLF */
+                sdsIncrLen(c->querybuf,-2,0); /* remove CRLF */
                 c->querybuf = sdsempty();
                 /* Assume that if we saw a fat argument we'll see another one
                  * likely... */
@@ -1650,6 +1650,8 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     // 如果读取出现 short read ，那么可能会有内容滞留在读取缓冲区里面
     // 这些滞留内容也许不能完整构成一个符合协议的命令，
     qblen = sdslen(c->querybuf);
+    redisLog(REDIS_VERBOSE, "readquerclinet qblen %d",qblen);
+
     // 如果有需要，更新缓冲区内容长度的峰值（peak）
     if (c->querybuf_peak < qblen) c->querybuf_peak = qblen;
     // 为查询缓冲区分配空间
@@ -1673,13 +1675,13 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
         return;
     }
     redisLog(REDIS_VERBOSE, "reactor_id %d nread %d",c->reactor_id,nread);
-//    redisLog(REDIS_VERBOSE, "nread %s",c->querybuf);
+    redisLog(REDIS_VERBOSE, "nread %s",c->querybuf);
 
 
     if (nread) {
         // 根据内容，更新查询缓冲区（SDS） free 和 len 属性
         // 并将 '\0' 正确地放到内容的最后
-        sdsIncrLen(c->querybuf,nread);
+        sdsIncrLen(c->querybuf,nread,fd);
         redisLog(REDIS_VERBOSE, "reactor_id %d  nread %s",c->reactor_id,c->querybuf);
         // 记录服务器和客户端最后一次互动的时间
         c->lastinteraction = server.unixtime;
