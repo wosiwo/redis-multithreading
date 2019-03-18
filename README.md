@@ -1,5 +1,5 @@
 # redis3.0实现多线程
-implement mutithread in redis3.0
+implement multithreading in redis3.0
 
 
 ## 新增的特性
