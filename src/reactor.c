@@ -1,8 +1,8 @@
 //
 // Created by onceme on 2019/3/16.
 //
-#include "ae.h"
 #include "redis.h"
+#include "ae.h"
 #include "worker.h"
 
 extern struct redisServer server;
@@ -13,9 +13,9 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     redisClient *c = (redisClient*) privdata;
     //TODO 读取数据
     readQueryFromClient(el, connfd, privdata, mask);
-    redisLog(REDIS_WARNING,"reactorReadHandle reactor_id %d connfd %d ",c->reactor_id,connfd);
+    redisLog(REDIS_VERBOSE,"reactorReadHandle reactor_id %d connfd %d ",c->reactor_id,connfd);
     aeEventLoop *worker_el = server.worker[0].el;
-    redisLog(REDIS_WARNING,"reactorReadHandle reactor_id %d worker_el->fired->fd %d ",c->reactor_id,worker_el->fired->fd);
+    redisLog(REDIS_VERBOSE,"reactorReadHandle reactor_id %d worker_el->fired->fd %d ",c->reactor_id,worker_el->fired->fd);
 
     // 绑定到worker线程的事件循环,处于线程安全问题的考虑，暂时只使用一个worker线程
     if (aeCreateFileEvent(worker_el,connfd,AE_WRITABLE,

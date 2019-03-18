@@ -245,7 +245,7 @@ int prepareClientToWrite(redisClient *c) {
         //使用客户端绑定的事件驱动器
         aeCreateFileEvent(c->reactor_el, c->fd, AE_WRITABLE,
         sendReplyToClient, c) == AE_ERR) {
-        redisLog(REDIS_WARNING,"aeCreateFileEvent sendReplyToClient");
+        redisLog(REDIS_DEBUG,"aeCreateFileEvent sendReplyToClient");
         return REDIS_ERR;
     }
 
@@ -764,8 +764,8 @@ void dispatch2Reactor(int connfd,redisClient *c){
     int reactor_id = connfd%server.reactorNum; //连接fd对REACTOR_NUM取余，决定抛给哪个reactor线程
     aeEventLoop *reactor_el = server.reactors[reactor_id].el;    //获取指定线程的事件驱动器
 
-    redisLog(REDIS_WARNING,"dispatch2Reactor reactor_id %d",reactor_id);
-    redisLog(REDIS_WARNING,"dispatch2Reactor reactor_el->fired->fd %d ",reactor_el->fired->fd);
+    redisLog(REDIS_DEBUG,"dispatch2Reactor reactor_id %d",reactor_id);
+    redisLog(REDIS_DEBUG,"dispatch2Reactor reactor_el->fired->fd %d ",reactor_el->fired->fd);
 
 
     c->reactor_el = reactor_el; //绑定线程事件循环
@@ -777,7 +777,7 @@ void dispatch2Reactor(int connfd,redisClient *c){
     if (aeCreateFileEvent(reactor_el,connfd,AE_READABLE,
                           reactorReadHandle, c) == AE_ERR)
     {
-        redisLog(REDIS_WARNING,"dispatch2Reactor AE_ERR %d",AE_ERR);
+        redisLog(REDIS_DEBUG,"dispatch2Reactor AE_ERR %d",AE_ERR);
 
         close(connfd);
         zfree(c);
@@ -1118,8 +1118,8 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     REDIS_NOTUSED(el);
     REDIS_NOTUSED(mask);
 
-//    redisLog(REDIS_WARNING, "sendReplyToClient reactor_id %d nread %s",c->reactor_id,c->buf+c->sentlen);
-    redisLog(REDIS_WARNING, "sendReplyToClient reactor_id %d ",c->reactor_id);
+//    redisLog(REDIS_DEBUG, "sendReplyToClient reactor_id %d nread %s",c->reactor_id,c->buf+c->sentlen);
+    redisLog(REDIS_DEBUG, "sendReplyToClient reactor_id %d ",c->reactor_id);
 
     // 一直循环，直到回复缓冲区为空
     // 或者指定条件满足为止
@@ -1607,7 +1607,7 @@ void processInputBuffer(redisClient *c) {
         } else {
             /* Only reset the client when the command was executed. */
             // 执行命令，并重置客户端
-            redisLog(REDIS_WARNING,"processCommand");
+            redisLog(REDIS_DEBUG,"processCommand");
 
             if (processCommand(c) == REDIS_OK)
                 resetClient(c);
@@ -1624,7 +1624,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     size_t qblen;
     REDIS_NOTUSED(el);
     REDIS_NOTUSED(mask);
-    redisLog(REDIS_WARNING, "readQueryFromClient");
+    redisLog(REDIS_DEBUG, "readQueryFromClient");
 
     // 设置服务器的当前客户端
 //    server.current_client = c;  //TODO 考虑线程安全
@@ -1672,15 +1672,15 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
         freeClient(c);
         return;
     }
-    redisLog(REDIS_WARNING, "reactor_id %d nread %d",c->reactor_id,nread);
-//    redisLog(REDIS_WARNING, "nread %s",c->querybuf);
+    redisLog(REDIS_VERBOSE, "reactor_id %d nread %d",c->reactor_id,nread);
+//    redisLog(REDIS_VERBOSE, "nread %s",c->querybuf);
 
 
     if (nread) {
         // 根据内容，更新查询缓冲区（SDS） free 和 len 属性
         // 并将 '\0' 正确地放到内容的最后
         sdsIncrLen(c->querybuf,nread);
-        redisLog(REDIS_WARNING, "reactor_id %d  nread %s",c->reactor_id,c->querybuf);
+        redisLog(REDIS_VERBOSE, "reactor_id %d  nread %s",c->reactor_id,c->querybuf);
         // 记录服务器和客户端最后一次互动的时间
         c->lastinteraction = server.unixtime;
         // 如果客户端是 master 的话，更新它的复制偏移量

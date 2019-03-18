@@ -10,7 +10,7 @@
 void workerReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     redisClient *c = (redisClient*) privdata;
 
-    redisLog(REDIS_WARNING,"workerReadHandle connfd %d ",connfd);
+    redisLog(REDIS_VERBOSE,"workerReadHandle connfd %d ",connfd);
 
     //从worker线程事件循环中删除这个连接 ，避免重复执行
     aeDeleteFileEvent(el,connfd,AE_WRITABLE);
