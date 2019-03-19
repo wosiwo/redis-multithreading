@@ -184,6 +184,7 @@ redisClient *createClient(int fd,int use_reactor) {
     //绑定事件驱动器
     c->reactor_el = server.el;  //兼容非客户端请求连接，默认绑定主线程的事件循环
     c->use_reactor = use_reactor;  //是否使用了reactor线程
+    c->cron_switch = 1;
     // 如果不是伪客户端，那么添加到服务器的客户端链表中
     if (fd != -1) listAddNodeTail(server.clients,c);
     // 初始化客户端的事务状态
@@ -1006,7 +1007,7 @@ void freeClient(redisClient *c) {
      * accumulated arguments. */
     // 关闭套接字，并从事件处理器中删除该套接字的事件
     if (c->fd != -1) {
-//        redisLog(REDIS_WARNING,'freeClient connfd %d',c->fd);
+        redisLog(REDIS_WARNING,'freeClient c->reactor_el %d connfd %d',c->reactor_el,c->fd);
 //        aeDeleteFileEvent(server.el,c->fd,AE_READABLE);
 //        aeDeleteFileEvent(server.el,c->fd,AE_WRITABLE);
         aeDeleteFileEvent(c->reactor_el,c->fd,AE_READABLE);
@@ -1246,6 +1247,7 @@ void resetClient(redisClient *c) {
 
     freeClientArgv(c);
     c->reqtype = 0;
+    c->cron_switch = 1;     //TODO 考虑是否要使用原子操作
     c->multibulklen = 0;
     c->bulklen = -1;
     /* We clear the ASKING flag as well if we are not inside a MULTI, and
@@ -1519,7 +1521,7 @@ int processMultibulkBuffer(redisClient *c) {
                 (signed) sdslen(c->querybuf) == c->bulklen+2)
             {
                 c->argv[c->argc++] = createObject(REDIS_STRING,c->querybuf);
-                sdsIncrLen(c->querybuf,-2,0); /* remove CRLF */
+                sdsIncrLen(c->querybuf,-2,0,0); /* remove CRLF */
                 c->querybuf = sdsempty();
                 /* Assume that if we saw a fat argument we'll see another one
                  * likely... */
@@ -1624,7 +1626,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     size_t qblen;
     REDIS_NOTUSED(el);
     REDIS_NOTUSED(mask);
-    redisLog(REDIS_DEBUG, "readQueryFromClient");
+    redisLog(REDIS_DEBUG, "readQueryFromClient reactor_id %d connfd %d",c->reactor_id,fd);
 
     // 设置服务器的当前客户端
 //    server.current_client = c;  //TODO 考虑线程安全
@@ -1650,12 +1652,25 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     // 如果读取出现 short read ，那么可能会有内容滞留在读取缓冲区里面
     // 这些滞留内容也许不能完整构成一个符合协议的命令，
     qblen = sdslen(c->querybuf);
-    redisLog(REDIS_VERBOSE, "readquerclinet qblen %d",qblen);
+//    redisLog(REDIS_VERBOSE, "readquerclinet qblen %d",qblen);
 
     // 如果有需要，更新缓冲区内容长度的峰值（peak）
     if (c->querybuf_peak < qblen) c->querybuf_peak = qblen;
+    //TODO 如果这个时候主线程定时任务已经获取c->query_buf的操作权限，怎么保证这次请求不丢失
+    //TODO 判断可读事件是否会重复触发
+    //原子操作，避免与主线程并发操作c->query_buf
+    if(!__sync_bool_compare_and_swap(c->cron_switch,1,0)){    //原子交换 cron_switch 为1时替换为0，并返回true,否则不替换，返回false
+        redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d ",c->querybuf,c->fd);
+        return;
+    }
     // 为查询缓冲区分配空间
+    struct sdshdr *sh;
+    struct sdshdr *sh1;
+    sh = (void*) (c->querybuf-(sizeof(struct sdshdr)));
+    redisLog(REDIS_VERBOSE,"reactor_id %d c->querybuf %p free %d readlen %d connfd %d",c->reactor_id,c->querybuf,sh->free,readlen,fd);
     c->querybuf = sdsMakeRoomFor(c->querybuf, readlen);
+    sh1 = (void*) (c->querybuf-(sizeof(struct sdshdr)));
+    redisLog(REDIS_VERBOSE,"reactor_id %d sdsMakeRoomFor c->querybuf1 %p  free %d connfd %d",c->reactor_id,c->querybuf,sh1->free,fd);
     // 读入内容到查询缓存
     nread = read(fd, c->querybuf+qblen, readlen);
 
@@ -1674,17 +1689,24 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
         freeClient(c);
         return;
     }
-    redisLog(REDIS_VERBOSE, "reactor_id %d nread %d",c->reactor_id,nread);
-    redisLog(REDIS_VERBOSE, "nread %s",c->querybuf);
+//    redisLog(REDIS_VERBOSE, "reactor_id %d nread %d",c->reactor_id,nread);
+//    redisLog(REDIS_VERBOSE, "nread %s",c->querybuf);
 
 
     if (nread) {
         // 根据内容，更新查询缓冲区（SDS） free 和 len 属性
         // 并将 '\0' 正确地放到内容的最后
-        sdsIncrLen(c->querybuf,nread,fd);
-        redisLog(REDIS_VERBOSE, "reactor_id %d  nread %s",c->reactor_id,c->querybuf);
+        struct sdshdr *sh2;
+        sh2 = (void*) (c->querybuf-(sizeof(struct sdshdr)));
+        redisLog(REDIS_VERBOSE,"reactor_id %d  c->querybuf2 %p free %d connfd %d",c->reactor_id,c->querybuf,sh2->free,fd);
+        sdsIncrLen(c->querybuf,nread,fd,c->reactor_id);
+        struct sdshdr *sh3;
+        sh3 = (void*) (c->querybuf-(sizeof(struct sdshdr)));
+        redisLog(REDIS_VERBOSE,"reactor_id %d  c->querybuf3 %p free %d connfd %d",c->reactor_id,c->querybuf,sh3->free,fd);
         // 记录服务器和客户端最后一次互动的时间
         c->lastinteraction = server.unixtime;
+//        redisLog(REDIS_VERBOSE, "reactor_id %d  c->lastinteraction %d nread %s",c->reactor_id,c->lastinteraction,c->querybuf);
+
         // 如果客户端是 master 的话，更新它的复制偏移量
         if (c->flags & REDIS_MASTER) c->reploff += nread;
     } else {

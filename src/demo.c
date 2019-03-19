@@ -13,6 +13,7 @@
 #include "replication.c";
 #include "sds.c";
 #include "rdb.c";
+#include "zmalloc.c";
 
 main(1);                                    //入口函数
 initServer(1);                             //初始化服务
@@ -47,6 +48,9 @@ addReplySds(1);
 REDIS_NOTUSED(privdata);
 
 
+//主线程定时任务
+
+clientsCronResizeQueryBuffer(1);
 //主从同步逻辑
 //主库逻辑
     //定时任务
@@ -94,6 +98,8 @@ sdsIncrLen(1);
 redisLog(1);
 sdsRemoveFreeSpace(1);
 sdsMakeRoomFor(1);
+sdsAllocSize(1);
+zrealloc(1);
 
 //子进程问题
 //fork进程，是否会把线程一起fork了

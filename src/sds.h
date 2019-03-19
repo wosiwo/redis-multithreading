@@ -119,7 +119,7 @@ sds sdsjoin(char **argv, int argc, char *sep);
 
 /* Low level functions exposed to the user API */
 sds sdsMakeRoomFor(sds s, size_t addlen);
-void sdsIncrLen(sds s, int incr, int fd);
+void sdsIncrLen(sds s, int incr, int fd, int reactor_id);
 sds sdsRemoveFreeSpace(sds s);
 size_t sdsAllocSize(sds s);
 

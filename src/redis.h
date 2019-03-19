@@ -50,6 +50,7 @@
 #include <netinet/in.h>
 #include <lua.h>
 #include <signal.h>
+#include <stdbool.h>
 
 #include "ae.h"      /* Event driven programming library */
 #include "sds.h"     /* Dynamic safe strings */
@@ -61,6 +62,10 @@
 #include "intset.h"  /* Compact integer set structure */
 #include "version.h" /* Version macro */
 #include "util.h"    /* Misc functions useful in many places */
+
+/*原子操作*/
+/* 原子比较交换，如果当前值等于旧指，则新值被设置，返回真值，否则返回假 */
+#define AO_CASB(ptr, comp, value) (__sync_bool_compare_and_swap((ptr), (comp), (value)) != 0 ? true : false)
 
 /* Error codes */
 #define REDIS_OK                0
@@ -685,7 +690,8 @@ typedef struct redisClient {
     aeEventLoop *reactor_el;
     int reactor_id; //记录被分配的reactor线程id
     int use_reactor; //是否使用了reactor线程
-
+    //主线程定时任务对客户端连接的操作(回收c->query_buf缓存空间，关闭超时客户端)，不是线程安全的，所以需要原子操作保证线程安全
+    int *cron_switch;
 } redisClient;
 
 // 服务器的保存条件（BGSAVE 自动执行的条件）

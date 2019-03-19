@@ -1137,10 +1137,13 @@ int clientsCronHandleTimeout(redisClient *c) {
  * 函数总是返回 0 ，因为它不会中止客户端。
  */
 int clientsCronResizeQueryBuffer(redisClient *c) {
-    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer");
     size_t querybuf_size = sdsAllocSize(c->querybuf);
     time_t idletime = server.unixtime - c->lastinteraction;
 
+    if(!__sync_bool_compare_and_swap(c->cron_switch,1,0)){    //原子交换 cron_switch 为1时替换为0，并返回true,否则不替换，返回false
+        redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d ",c->querybuf,c->fd);
+        return 0;
+    }
     /* There are two conditions to resize the query buffer:
      *
      * 符合以下两个条件的话，执行大小调整：
@@ -1151,6 +1154,8 @@ int clientsCronResizeQueryBuffer(redisClient *c) {
      * 2) Client is inactive and the buffer is bigger than 1k. 
      *    客户端不活跃，并且缓冲区大于 1k 。
      */
+    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime);
+
     if (((querybuf_size > REDIS_MBULK_BIG_ARG) &&
          (querybuf_size/(c->querybuf_peak+1)) > 2) ||
          (querybuf_size > 1024 && idletime > 2))
@@ -1160,11 +1165,18 @@ int clientsCronResizeQueryBuffer(redisClient *c) {
             c->querybuf = sdsRemoveFreeSpace(c->querybuf);
         }
     }
+    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime);
+
 
     /* Reset the peak again to capture the peak memory usage in the next
      * cycle. */
     // 重置峰值
     c->querybuf_peak = 0;
+
+    //交出c结构体的修改权限
+    if(!AO_CASB(c->cron_switch,0,1)){   //正常这里不应该出错，都应该返回true
+        redisLog(REDIS_WARNING,"clientsCronResizeQueryBuffer c->cron_switch error %p connfd %d ",c->querybuf,c->fd);
+    }
 
     return 0;
 }
