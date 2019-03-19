@@ -153,7 +153,7 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
  * After the call, the passed sds string is no longer valid and all the
  * references must be substituted with the new pointer returned by the call. */
 sds sdsRemoveFreeSpace(sds s) {
-    printf("hiredis sdsRemoveFreeSpace \n");
+//    printf("hiredis sdsRemoveFreeSpace \n");
     struct sdshdr *sh;
 
     sh = (void*) (s-(sizeof(struct sdshdr)));

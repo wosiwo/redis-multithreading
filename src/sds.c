@@ -279,7 +279,7 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
  * After the call, the passed sds string is no longer valid and all the
  * references must be substituted with the new pointer returned by the call. */
 sds sdsRemoveFreeSpace(sds s) {
-    printf("sdsRemoveFreeSpace \n");
+//    printf("sdsRemoveFreeSpace \n");
     struct sdshdr *sh;
 
     sh = (void*) (s-(sizeof(struct sdshdr)));
@@ -353,15 +353,15 @@ size_t sdsAllocSize(sds s) {
 void sdsIncrLen(sds s, int incr, int fd,int reactor_id) {
     struct sdshdr *sh = (void*) (s-(sizeof(struct sdshdr)));
 
-    printf("sdsIncrLen reactor_id %d sh->free %d incr %d connfd %d \n",reactor_id,sh->free,incr,fd);
+//    printf("sdsIncrLen reactor_id %d sh->free %d incr %d connfd %d \n",reactor_id,sh->free,incr,fd);
 
     if(sh->free<incr){
-        printf("\n\n \n");
-        printf("sdsIncrLen reactor_id %d  sh->free %d incr %d connfd %d \n",reactor_id,sh->free,incr,fd);
+//        printf("\n\n \n");
+//        printf("sdsIncrLen reactor_id %d  sh->free %d incr %d connfd %d \n",reactor_id,sh->free,incr,fd);
 
     }
     // 确保 sds 空间足够
-//    assert(sh->free >= incr);
+    assert(sh->free >= incr);
 
     // 更新属性
     sh->len += incr;
@@ -369,7 +369,7 @@ void sdsIncrLen(sds s, int incr, int fd,int reactor_id) {
 
     // 这个 assert 其实可以忽略
     // 因为前一个 assert 已经确保 sh->free - incr >= 0 了
-//    assert(sh->free >= 0);
+    assert(sh->free >= 0);
 
     // 放置新的结尾符号
     s[sh->len] = '\0';

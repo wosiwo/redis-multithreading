@@ -385,16 +385,31 @@ void redisLogRaw(int level, const char *msg) {
  * the INFO output on crash. */
 //mt:考虑是否需要独立线程记日志
 void redisLog(int level, const char *fmt, ...) {
+//    printf("server.redis_log_atomlock1 %d \n",server.redis_log_atomlock);
+
+    //暂时用原子操作来防止printf的线程安全问题
+    if(!AO_CASB(&server.redis_log_atomlock,1,0)){
+        return;
+    }
+//    printf("server.redis_log_atomlock2 %d \n",server.redis_log_atomlock);
+        // TODO 后续改进：1.使用日志buff来防止日志丢失 2.使用队列，独立线程输出日志， 3.每个线程独立的输出日志
     va_list ap;
     char msg[REDIS_MAX_LOGMSG_LEN];
 
-    if ((level&0xff) < server.verbosity) return;
+    if ((level&0xff) < server.verbosity) {
+        AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
+        return;
+    }
 
-    va_start(ap, fmt);
-    vsnprintf(msg, sizeof(msg), fmt, ap);
-    va_end(ap);
+//    va_start(ap, fmt);
+//    vsnprintf(msg, sizeof(msg), fmt, ap);
+//    va_end(ap);
+//
+//    redisLogRaw(level,msg);
+    AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
+//    printf("server.redis_log_atomlock3 %d \n",server.redis_log_atomlock);
 
-    redisLogRaw(level,msg);
+
 }
 
 /* Log a fixed message without printf-alike capabilities, in a way that is
@@ -1137,13 +1152,12 @@ int clientsCronHandleTimeout(redisClient *c) {
  * 函数总是返回 0 ，因为它不会中止客户端。
  */
 int clientsCronResizeQueryBuffer(redisClient *c) {
-    size_t querybuf_size = sdsAllocSize(c->querybuf);
-    time_t idletime = server.unixtime - c->lastinteraction;
-
-    if(!__sync_bool_compare_and_swap(c->cron_switch,1,0)){    //原子交换 cron_switch 为1时替换为0，并返回true,否则不替换，返回false
-        redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d ",c->querybuf,c->fd);
+    if(!AO_CASB(&c->cron_switch,1,0)){    //原子交换 cron_switch 为1时替换为0，并返回true,否则不替换，返回false
+        redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer  query_buff  locked query_buff %p connfd %d c->cron_switch %d",c->querybuf,c->fd,c->cron_switch);
         return 0;
     }
+    size_t querybuf_size = sdsAllocSize(c->querybuf);
+    time_t idletime = server.unixtime - c->lastinteraction;
     /* There are two conditions to resize the query buffer:
      *
      * 符合以下两个条件的话，执行大小调整：
@@ -1154,7 +1168,7 @@ int clientsCronResizeQueryBuffer(redisClient *c) {
      * 2) Client is inactive and the buffer is bigger than 1k. 
      *    客户端不活跃，并且缓冲区大于 1k 。
      */
-    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime);
+    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d c->cron_switch %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime,c->cron_switch);
 
     if (((querybuf_size > REDIS_MBULK_BIG_ARG) &&
          (querybuf_size/(c->querybuf_peak+1)) > 2) ||
@@ -1174,7 +1188,7 @@ int clientsCronResizeQueryBuffer(redisClient *c) {
     c->querybuf_peak = 0;
 
     //交出c结构体的修改权限
-    if(!AO_CASB(c->cron_switch,0,1)){   //正常这里不应该出错，都应该返回true
+    if(!AO_CASB(&c->cron_switch,0,1)){   //正常这里不应该出错，都应该返回true
         redisLog(REDIS_WARNING,"clientsCronResizeQueryBuffer c->cron_switch error %p connfd %d ",c->querybuf,c->fd);
     }
 
@@ -1898,6 +1912,8 @@ void initServerConfig() {
 
     //reactor 线程数量
     server.reactorNum = 6;
+    //日志输出原子锁
+    server.redis_log_atomlock = 1;
 }
 
 /* This function will try to raise the max number of open files accordingly to

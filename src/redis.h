@@ -691,7 +691,7 @@ typedef struct redisClient {
     int reactor_id; //记录被分配的reactor线程id
     int use_reactor; //是否使用了reactor线程
     //主线程定时任务对客户端连接的操作(回收c->query_buf缓存空间，关闭超时客户端)，不是线程安全的，所以需要原子操作保证线程安全
-    int *cron_switch;
+    int cron_switch;
 } redisClient;
 
 // 服务器的保存条件（BGSAVE 自动执行的条件）
@@ -1346,6 +1346,9 @@ struct redisServer {
     thReactor worker[1];
     //线程数量
     int reactorNum;
+
+    //redisLog 原子锁
+    int redis_log_atomlock;
 };
 
 /*

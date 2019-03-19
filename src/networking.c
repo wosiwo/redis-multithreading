@@ -952,6 +952,8 @@ void replicationHandleMasterDisconnection(void) {
  */
 void freeClient(redisClient *c) {
     listNode *ln;
+    redisLog(REDIS_WARNING,'freeClient ');
+    redisLog(REDIS_WARNING,'freeClient c->reactor_el %d connfd %d',c->reactor_el,c->fd);
 
     /* If this is marked as current client unset it */
     if (server.current_client == c) server.current_client = NULL;
@@ -1659,7 +1661,9 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     //TODO 如果这个时候主线程定时任务已经获取c->query_buf的操作权限，怎么保证这次请求不丢失
     //TODO 判断可读事件是否会重复触发
     //原子操作，避免与主线程并发操作c->query_buf
-    if(!__sync_bool_compare_and_swap(c->cron_switch,1,0)){    //原子交换 cron_switch 为1时替换为0，并返回true,否则不替换，返回false
+    redisLog(REDIS_VERBOSE,"__sync_bool_compare_and_swap c->cron_switch %d connfd %d ",c->cron_switch,c->fd);
+
+    if(!__sync_bool_compare_and_swap(&c->cron_switch,1,0)){    //原子交换 cron_switch 为1时替换为0，并返回true,否则不替换，返回false
         redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d ",c->querybuf,c->fd);
         return;
     }
@@ -1685,7 +1689,8 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
         }
     // 遇到 EOF
     } else if (nread == 0) {
-        redisLog(REDIS_VERBOSE, "Client closed connection");
+        redisLog(REDIS_VERBOSE, "Client2 closed connection");
+        redisLog(REDIS_WARNING,'freeClient');
         freeClient(c);
         return;
     }
