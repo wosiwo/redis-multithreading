@@ -389,15 +389,6 @@ void redisLogRawOri(int level, const char *msg) {
     if (server.syslog_enabled) syslog(syslogLevelMap[level], "%s", msg);
 }
 
-int rd_vsnprintf (char * msg, size_t size, const char *fmt,va_list ap){
-    //暂时用原子操作来防止printf的线程安全问题
-    if(!AO_CASB(&server.redis_log_atomlock,1,0)){
-        return 0;
-    }
-    int ret = vsnprintf(msg, size, fmt, ap);
-    AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
-    return ret;
-}
 
 /* Like redisLogRaw() but with printf-alike support. This is the function that
  * is used across the code. The raw version is only used in order to dump
@@ -415,20 +406,18 @@ void redisLog(int level, const char *fmt, ...) {
     char msg[REDIS_MAX_LOGMSG_LEN];
 
     if ((level&0xff) < server.verbosity) {
-//    if ((level&0xff) < 10) {
         AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
         return;
     }
 
-//    printf(fmt);
-//    printf("\n");
     va_start(ap, fmt);
-//    VA_RD_START(ap, fmt);
+//    rd_va_start(ap, fmt);
     vsnprintf(msg, sizeof(msg), fmt, ap);
+//    rd_vsnprintf(msg, sizeof(msg), fmt, ap);
     va_end(ap);
 //
     AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
-//    redisLogRaw(level,msg);
+    redisLogRaw(level,msg);
 //    printf("server.redis_log_atomlock3 %d \n",server.redis_log_atomlock);
 
 

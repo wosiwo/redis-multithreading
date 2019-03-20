@@ -1788,7 +1788,6 @@ void redisLog(int level, const char *fmt, ...)
 void redisLog(int level, const char *fmt, ...);
 #endif
 
-int rd_vsnprintf(char * msg, size_t size, const char *fmt,va_list ap);
 void redisLogRaw(int level, const char *msg);
 void redisLogRawOri(int level, const char *msg);
 void redisLogFromHandler(int level, const char *msg);

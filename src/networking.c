@@ -952,8 +952,7 @@ void replicationHandleMasterDisconnection(void) {
  */
 void freeClient(redisClient *c) {
     listNode *ln;
-    redisLog(REDIS_WARNING,'freeClient ');
-    redisLog(REDIS_WARNING,'freeClient c->reactor_el %d connfd %d',c->reactor_el,c->fd);
+//    redisLog(REDIS_WARNING,"freeClient c->reactor_el %d connfd %d",c->reactor_el,c->fd);
 
     /* If this is marked as current client unset it */
     if (server.current_client == c) server.current_client = NULL;
@@ -1009,7 +1008,7 @@ void freeClient(redisClient *c) {
      * accumulated arguments. */
     // 关闭套接字，并从事件处理器中删除该套接字的事件
     if (c->fd != -1) {
-        redisLog(REDIS_WARNING,'freeClient c->reactor_el %d connfd %d',c->reactor_el,c->fd);
+        redisLog(REDIS_WARNING,"freeClient c->reactor_el %d connfd %d",c->reactor_el,c->fd);
 //        aeDeleteFileEvent(server.el,c->fd,AE_READABLE);
 //        aeDeleteFileEvent(server.el,c->fd,AE_WRITABLE);
         aeDeleteFileEvent(c->reactor_el,c->fd,AE_READABLE);
@@ -1628,6 +1627,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     size_t qblen;
     REDIS_NOTUSED(el);
     REDIS_NOTUSED(mask);
+//    redisLog(REDIS_WARNING, 'AAA');
     redisLog(REDIS_DEBUG, "readQueryFromClient reactor_id %d connfd %d",c->reactor_id,fd);
 
     // 设置服务器的当前客户端
@@ -1690,7 +1690,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     // 遇到 EOF
     } else if (nread == 0) {
         redisLog(REDIS_VERBOSE, "Client2 closed connection");
-        redisLog(REDIS_WARNING,'freeClient');
+//        redisLog(REDIS_WARNING,'freeClient');
         freeClient(c);
         return;
     }
