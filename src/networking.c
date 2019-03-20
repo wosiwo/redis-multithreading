@@ -1008,7 +1008,7 @@ void freeClient(redisClient *c) {
      * accumulated arguments. */
     // 关闭套接字，并从事件处理器中删除该套接字的事件
     if (c->fd != -1) {
-        redisLog(REDIS_WARNING,"freeClient c->reactor_el %d connfd %d",c->reactor_el,c->fd);
+        redisLog(REDIS_WARNING,"freeClient c->reactor_el %p connfd %d",c->reactor_el,c->fd);
 //        aeDeleteFileEvent(server.el,c->fd,AE_READABLE);
 //        aeDeleteFileEvent(server.el,c->fd,AE_WRITABLE);
         aeDeleteFileEvent(c->reactor_el,c->fd,AE_READABLE);
@@ -1621,7 +1621,7 @@ void processInputBuffer(redisClient *c) {
 /*
  * 读取客户端的查询缓冲区内容
  */
-void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
+int readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     redisClient *c = (redisClient*) privdata;
     int nread, readlen;
     size_t qblen;
@@ -1665,7 +1665,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
 
     if(!__sync_bool_compare_and_swap(&c->cron_switch,1,0)){    //原子交换 cron_switch 为1时替换为0，并返回true,否则不替换，返回false
         redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d ",c->querybuf,c->fd);
-        return;
+        return 1;
     }
     // 为查询缓冲区分配空间
     struct sdshdr *sh;
@@ -1685,14 +1685,14 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
         } else {
             redisLog(REDIS_VERBOSE, "Reading from client: %s",strerror(errno));
             freeClient(c);
-            return;
+            return 0;
         }
     // 遇到 EOF
     } else if (nread == 0) {
         redisLog(REDIS_VERBOSE, "Client2 closed connection");
 //        redisLog(REDIS_WARNING,'freeClient');
         freeClient(c);
-        return;
+        return 0;
     }
 //    redisLog(REDIS_VERBOSE, "reactor_id %d nread %d",c->reactor_id,nread);
 //    redisLog(REDIS_VERBOSE, "nread %s",c->querybuf);
@@ -1717,7 +1717,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     } else {
         // 在 nread == -1 且 errno == EAGAIN 时运行
         server.current_client = NULL;
-        return;
+        return 0;
     }
 
     // 查询缓冲区长度超出服务器最大缓冲区长度
@@ -1730,7 +1730,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
         sdsfree(ci);
         sdsfree(bytes);
         freeClient(c);
-        return;
+        return 0;
     }
 
     // 从查询缓存重读取内容，创建参数，并执行命令
@@ -1740,6 +1740,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     }
 
 //    server.current_client = NULL; //需要考虑多线程并发的情况，暂时注释
+    return 1;
 }
 
 // 获取客户端目前最大的一块缓冲区的大小

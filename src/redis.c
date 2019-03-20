@@ -398,15 +398,15 @@ void redisLog(int level, const char *fmt, ...) {
 //    printf("server.redis_log_atomlock1 %d \n",server.redis_log_atomlock);
 //    return;
     //暂时用原子操作来防止printf的线程安全问题
-    if(!AO_CASB(&server.redis_log_atomlock,1,0)){
-        return;
-    }
+//    if(!AO_CASB(&server.redis_log_atomlock,1,0)){
+//        return;
+//    }
         // TODO 后续改进：1.使用日志buff来防止日志丢失 2.使用队列，独立线程输出日志， 3.每个线程独立的输出日志
     va_list ap;
     char msg[REDIS_MAX_LOGMSG_LEN];
 
     if ((level&0xff) < server.verbosity) {
-        AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
+//        AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
         return;
     }
 
@@ -416,7 +416,7 @@ void redisLog(int level, const char *fmt, ...) {
 //    rd_vsnprintf(msg, sizeof(msg), fmt, ap);
     va_end(ap);
 //
-    AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
+//    AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
     redisLogRaw(level,msg);
 //    printf("server.redis_log_atomlock3 %d \n",server.redis_log_atomlock);
 
@@ -1922,7 +1922,7 @@ void initServerConfig() {
     server.watchdog_period = 0;
 
     //reactor 线程数量
-    server.reactorNum = 6;
+    server.reactorNum = 2;
     //日志输出原子锁
     server.redis_log_atomlock = 1;
 }

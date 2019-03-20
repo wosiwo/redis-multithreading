@@ -845,7 +845,7 @@ typedef struct _thReactor{
     pthread_t pidt;
     aeEventLoop *el;      //reactor线程中的事件驱动器(结构体封装)
 } thReactor;
-#define MAX_REACTOR_NUM 6
+#define MAX_REACTOR_NUM 2
 
 struct redisServer {
 
@@ -1575,7 +1575,7 @@ void addReplySds(redisClient *c, sds s);
 void processInputBuffer(redisClient *c);
 void acceptTcpHandler(aeEventLoop *el, int fd, void *privdata, int mask);
 void acceptUnixHandler(aeEventLoop *el, int fd, void *privdata, int mask);
-void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask);
+int readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask);
 void addReplyBulk(redisClient *c, robj *obj);
 void addReplyBulkCString(redisClient *c, char *s);
 void addReplyBulkCBuffer(redisClient *c, void *p, size_t len);
