@@ -350,7 +350,7 @@ struct evictionPoolEntry *evictionPoolAlloc(void);
 
 /* Low level logging. To use only for very big messages, otherwise
  * redisLog() is to prefer. */
-void redisLogRaw(int level, const char *msg) {
+void redisLogRawOri(int level, const char *msg) {
     //暂时用原子操作来防止printf的线程安全问题
     if(!AO_CASB(&server.redis_log_atomlock,1,0)){
         return;
@@ -358,7 +358,7 @@ void redisLogRaw(int level, const char *msg) {
     redisLogRawOri(level,msg);
     AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
 }
-void redisLogRawOri(int level, const char *msg) {
+void redisLogRaw(int level, const char *msg) {
     const int syslogLevelMap[] = { LOG_DEBUG, LOG_INFO, LOG_NOTICE, LOG_WARNING };
     const char *c = ".-*#";
     FILE *fp;
@@ -1179,7 +1179,7 @@ int clientsCronResizeQueryBuffer(redisClient *c) {
      * 2) Client is inactive and the buffer is bigger than 1k. 
      *    客户端不活跃，并且缓冲区大于 1k 。
      */
-//    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d c->cron_switch %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime,c->cron_switch);
+    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d c->cron_switch %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime,c->cron_switch);
 
     if (((querybuf_size > REDIS_MBULK_BIG_ARG) &&
          (querybuf_size/(c->querybuf_peak+1)) > 2) ||
@@ -1190,7 +1190,7 @@ int clientsCronResizeQueryBuffer(redisClient *c) {
             c->querybuf = sdsRemoveFreeSpace(c->querybuf);
         }
     }
-//    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime);
+    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime);
 
 
     /* Reset the peak again to capture the peak memory usage in the next

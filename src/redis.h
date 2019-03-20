@@ -845,7 +845,7 @@ typedef struct _thReactor{
     pthread_t pidt;
     aeEventLoop *el;      //reactor线程中的事件驱动器(结构体封装)
 } thReactor;
-#define MAX_REACTOR_NUM 2
+#define MAX_REACTOR_NUM 6
 
 struct redisServer {
 

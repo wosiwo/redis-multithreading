@@ -104,6 +104,7 @@ sdsRemoveFreeSpace(1);
 sdsMakeRoomFor(1);
 sdsAllocSize(1);
 zrealloc(1);
+zfree(1);
 
 //子进程问题
 //fork进程，是否会把线程一起fork了

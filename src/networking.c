@@ -952,7 +952,7 @@ void replicationHandleMasterDisconnection(void) {
  */
 void freeClient(redisClient *c) {
     listNode *ln;
-//    redisLog(REDIS_WARNING,"freeClient c->reactor_el %d connfd %d",c->reactor_el,c->fd);
+    redisLog(REDIS_WARNING,"freeClient c->reactor_el %d connfd %d",c->reactor_el,c->fd);
 
     /* If this is marked as current client unset it */
     if (server.current_client == c) server.current_client = NULL;
@@ -1663,10 +1663,7 @@ int readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     //原子操作，避免与主线程并发操作c->query_buf
     redisLog(REDIS_VERBOSE,"__sync_bool_compare_and_swap c->cron_switch %d connfd %d ",c->cron_switch,c->fd);
 
-    if(!__sync_bool_compare_and_swap(&c->cron_switch,1,0)){    //原子交换 cron_switch 为1时替换为0，并返回true,否则不替换，返回false
-        redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d ",c->querybuf,c->fd);
-        return 1;
-    }
+
     // 为查询缓冲区分配空间
     struct sdshdr *sh;
     struct sdshdr *sh1;
