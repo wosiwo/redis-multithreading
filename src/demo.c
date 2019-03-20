@@ -49,7 +49,11 @@ REDIS_NOTUSED(privdata);
 
 
 //主线程定时任务
-
+serverCron(1);              //加入到时间事件
+aeMain(1);                  //主循环
+aeProcessEvents(1);         //循环处理事件
+processTimeEvents(1);       //处理所有已到达的时间事件
+clientsCron(1);
 clientsCronResizeQueryBuffer(1);
 //主从同步逻辑
 //主库逻辑

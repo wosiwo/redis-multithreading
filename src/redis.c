@@ -55,6 +55,7 @@
 #include <locale.h>
 #include <unistd.h>
 
+
 /* Our shared "common" objects */
 
 struct sharedObjectsStruct shared;
@@ -350,6 +351,14 @@ struct evictionPoolEntry *evictionPoolAlloc(void);
 /* Low level logging. To use only for very big messages, otherwise
  * redisLog() is to prefer. */
 void redisLogRaw(int level, const char *msg) {
+    //暂时用原子操作来防止printf的线程安全问题
+    if(!AO_CASB(&server.redis_log_atomlock,1,0)){
+        return;
+    }
+    redisLogRawOri(level,msg);
+    AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
+}
+void redisLogRawOri(int level, const char *msg) {
     const int syslogLevelMap[] = { LOG_DEBUG, LOG_INFO, LOG_NOTICE, LOG_WARNING };
     const char *c = ".-*#";
     FILE *fp;
@@ -380,33 +389,46 @@ void redisLogRaw(int level, const char *msg) {
     if (server.syslog_enabled) syslog(syslogLevelMap[level], "%s", msg);
 }
 
+int rd_vsnprintf (char * msg, size_t size, const char *fmt,va_list ap){
+    //暂时用原子操作来防止printf的线程安全问题
+    if(!AO_CASB(&server.redis_log_atomlock,1,0)){
+        return 0;
+    }
+    int ret = vsnprintf(msg, size, fmt, ap);
+    AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
+    return ret;
+}
+
 /* Like redisLogRaw() but with printf-alike support. This is the function that
  * is used across the code. The raw version is only used in order to dump
  * the INFO output on crash. */
 //mt:考虑是否需要独立线程记日志
 void redisLog(int level, const char *fmt, ...) {
 //    printf("server.redis_log_atomlock1 %d \n",server.redis_log_atomlock);
-
+//    return;
     //暂时用原子操作来防止printf的线程安全问题
     if(!AO_CASB(&server.redis_log_atomlock,1,0)){
         return;
     }
-//    printf("server.redis_log_atomlock2 %d \n",server.redis_log_atomlock);
         // TODO 后续改进：1.使用日志buff来防止日志丢失 2.使用队列，独立线程输出日志， 3.每个线程独立的输出日志
     va_list ap;
     char msg[REDIS_MAX_LOGMSG_LEN];
 
     if ((level&0xff) < server.verbosity) {
+//    if ((level&0xff) < 10) {
         AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
         return;
     }
 
-//    va_start(ap, fmt);
-//    vsnprintf(msg, sizeof(msg), fmt, ap);
-//    va_end(ap);
+//    printf(fmt);
+//    printf("\n");
+    va_start(ap, fmt);
+//    VA_RD_START(ap, fmt);
+    vsnprintf(msg, sizeof(msg), fmt, ap);
+    va_end(ap);
 //
-//    redisLogRaw(level,msg);
     AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
+//    redisLogRaw(level,msg);
 //    printf("server.redis_log_atomlock3 %d \n",server.redis_log_atomlock);
 
 
@@ -1168,7 +1190,7 @@ int clientsCronResizeQueryBuffer(redisClient *c) {
      * 2) Client is inactive and the buffer is bigger than 1k. 
      *    客户端不活跃，并且缓冲区大于 1k 。
      */
-    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d c->cron_switch %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime,c->cron_switch);
+//    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d c->cron_switch %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime,c->cron_switch);
 
     if (((querybuf_size > REDIS_MBULK_BIG_ARG) &&
          (querybuf_size/(c->querybuf_peak+1)) > 2) ||
@@ -1179,7 +1201,7 @@ int clientsCronResizeQueryBuffer(redisClient *c) {
             c->querybuf = sdsRemoveFreeSpace(c->querybuf);
         }
     }
-    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime);
+//    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime);
 
 
     /* Reset the peak again to capture the peak memory usage in the next

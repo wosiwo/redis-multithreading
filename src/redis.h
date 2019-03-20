@@ -67,6 +67,9 @@
 /* 原子比较交换，如果当前值等于旧指，则新值被设置，返回真值，否则返回假 */
 #define AO_CASB(ptr, comp, value) (__sync_bool_compare_and_swap((ptr), (comp), (value)) != 0 ? true : false)
 
+/*可变参数封装*/
+#define VA_RD_START(ap,fmt) (AO_CASB(&server.redis_log_atomlock,1,0)?va_start((ap), (fmt)):false)
+
 /* Error codes */
 #define REDIS_OK                0
 #define REDIS_ERR               -1
@@ -1784,7 +1787,10 @@ void redisLog(int level, const char *fmt, ...)
 #else
 void redisLog(int level, const char *fmt, ...);
 #endif
+
+int rd_vsnprintf(char * msg, size_t size, const char *fmt,va_list ap);
 void redisLogRaw(int level, const char *msg);
+void redisLogRawOri(int level, const char *msg);
 void redisLogFromHandler(int level, const char *msg);
 void usage();
 void updateDictResizePolicy(void);
