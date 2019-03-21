@@ -2213,7 +2213,14 @@ void initServer() {
         redisLog(REDIS_VERBOSE,"pthread_create  %d",i);
     }
     //创建一个worker线程来执行客户端命令
-    i=0;
+    int socks[2];
+    //在master进程中将所有管道都创建好
+    int ret = socketpair(AF_UNIX, SOCK_DGRAM, 0, socks);
+    //获取用于读取的fd
+    server.worker[0].pipWorkerFd = socks[1];
+    server.worker[0].pipMasterFd = socks[0];
+
+    i = 0;
     if (pthread_create(&pidt, NULL,rdWorkerThread_loop, i) < 0)
     {
 //        vsprintf();

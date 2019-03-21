@@ -28,12 +28,25 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     aeEventLoop *worker_el = server.worker[0].el;
     redisLog(REDIS_VERBOSE,"reactorReadHandle reactor_id %d worker_el->fired->fd %d ",c->reactor_id,worker_el->fired->fd);
 
+    //数据读取完需要立即触发woker线程执行，不能等待连接可写
+    //将客户端信息添加到worker线程的队列中
+    listAddNodeTail(server.worker[0].clients,c);
+
+
+    //通过管道通知worker线程
+    int pipeWriteFd = server.worker[0].pipMasterFd;
+    char buf[1];
+    buf[0] = 'c';
+    ret = write(pipeWriteFd, buf, 1);
+//    redisLog(REDIS_WARNING,"prepare write to worker c->reactor_id %d ret %d",c->reactor_id,ret);
+
+
     // 绑定到worker线程的事件循环,处于线程安全问题的考虑，暂时只使用一个worker线程
-    if (aeCreateFileEvent(worker_el,connfd,AE_WRITABLE,
-                          workerReadHandle, c) == AE_ERR)
-    {
-        freeClient(c);
-    }
+//    if (aeCreateFileEvent(worker_el,connfd,AE_WRITABLE,
+//                          workerReadHandle, c) == AE_ERR)
+//    {
+//        freeClient(c);
+//    }
 }
 
 /**

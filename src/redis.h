@@ -844,7 +844,20 @@ struct clusterState;
 typedef struct _thReactor{
     pthread_t pidt;
     aeEventLoop *el;      //reactor线程中的事件驱动器(结构体封装)
+
 } thReactor;
+//worker线程信息
+typedef struct _thWorker{
+    pthread_t pidt;
+    aeEventLoop *el;      //reactor线程中的事件驱动器(结构体封装)
+
+    int pipWorkerFd;
+    int pipMasterFd;
+    int worker_id;
+
+    // 一个链表，保存了本线程客户端状态结构
+    list *clients;              /* List of active clients */
+} thWorker;
 #define MAX_REACTOR_NUM 6
 
 struct redisServer {
@@ -1346,7 +1359,7 @@ struct redisServer {
     //thReactor 保存reactor线程信息
     thReactor  reactors[MAX_REACTOR_NUM];
     // 事件状态
-    thReactor worker[1];
+    thWorker worker[1];
     //线程数量
     int reactorNum;
 
