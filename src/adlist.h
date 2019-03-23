@@ -27,9 +27,14 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#include <stdbool.h>
 
 #ifndef __ADLIST_H__
 #define __ADLIST_H__
+
+/*原子操作*/
+/* 原子比较交换，如果当前值等于旧指，则新值被设置，返回真值，否则返回假 */
+#define AO_CASB(ptr, comp, value) (__sync_bool_compare_and_swap((ptr), (comp), (value)) != 0 ? true : false)
 
 /* Node, List, and Iterator are the only data structures used currently. */
 
@@ -81,6 +86,9 @@ typedef struct list {
 
     // 节点值对比函数
     int (*match)(void *ptr, void *key);
+
+    // 原子操作开关
+    int atom_switch;
 
     // 链表所包含的节点数量
     unsigned long len;
@@ -140,6 +148,7 @@ void listReleaseIterator(listIter *iter);
 list *listDup(list *orig);
 listNode *listSearchKey(list *list, void *key);
 listNode *listIndex(list *list, long index);
+listNode *listPop(list *list);
 void listRewind(list *list, listIter *li);
 void listRewindTail(list *list, listIter *li);
 void listRotate(list *list);

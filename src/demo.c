@@ -14,6 +14,7 @@
 #include "sds.c";
 #include "rdb.c";
 #include "zmalloc.c";
+#include "redis-benchmark.c";
 
 main(1);                                    //入口函数
 initServer(1);                             //初始化服务
@@ -44,6 +45,7 @@ getTcpConnfd(1);
 listAddNodeTail(1);
 addReply(1);
 addReplySds(1);
+addReplyErrorFormat(1);
 
 REDIS_NOTUSED(privdata);
 
@@ -105,6 +107,17 @@ sdsMakeRoomFor(1);
 sdsAllocSize(1);
 zrealloc(1);
 zfree(1);
+
+
+//redis-benchmark 压测逻辑
+benchmark("GET",cmd,len);   //压测某个命令
+c = createClient(cmd,len,NULL); //创建第一个客户端
+createMissingClients(c);    //批量创建client
+aeMain(config.el);  //事件循环
+aeProcessEvents(1);
+writeHandler(1);    //可写事件回调函数，向服务端发送命令
+
+readHandler(1); //可读事件回调函数，接收服务端返回
 
 //子进程问题
 //fork进程，是否会把线程一起fork了

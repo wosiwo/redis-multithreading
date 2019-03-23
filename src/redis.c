@@ -1179,7 +1179,7 @@ int clientsCronResizeQueryBuffer(redisClient *c) {
      * 2) Client is inactive and the buffer is bigger than 1k. 
      *    客户端不活跃，并且缓冲区大于 1k 。
      */
-    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d c->cron_switch %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime,c->cron_switch);
+    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d c->cron_switch %d connfd %d",c->querybuf,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime,c->cron_switch,c->fd);
 
     if (((querybuf_size > REDIS_MBULK_BIG_ARG) &&
          (querybuf_size/(c->querybuf_peak+1)) > 2) ||
@@ -1922,7 +1922,7 @@ void initServerConfig() {
     server.watchdog_period = 0;
 
     //reactor 线程数量
-    server.reactorNum = 2;
+    server.reactorNum = 1;
     //日志输出原子锁
     server.redis_log_atomlock = 1;
 }

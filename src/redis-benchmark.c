@@ -204,6 +204,7 @@ static void readHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
                 fprintf(stderr,"Error: %s\n",c->context->errstr);
                 exit(1);
             }
+            printf("read connfd %d c->pending %d \n",c->context->fd,c->pending);
             if (reply != NULL) {
                 if (reply == (void*)REDIS_REPLY_ERROR) {
                     fprintf(stderr,"Unexpected error reply, exiting...\n");
@@ -230,6 +231,8 @@ static void readHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
                 if (config.requests_finished < config.requests)
                     config.latency[config.requests_finished++] = c->latency;
                 c->pending--;
+                printf("read connfd %d c->pending %d \n",c->context->fd,c->pending);
+
                 if (c->pending == 0) {
                     clientDone(c);
                     break;
@@ -246,6 +249,7 @@ static void writeHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
     REDIS_NOTUSED(el);
     REDIS_NOTUSED(fd);
     REDIS_NOTUSED(mask);
+    printf("writeHandler connfd %d c->pending %d \n",c->context->fd,c->pending);
 
     /* Initialize request when nothing was written. */
     if (c->written == 0) {
@@ -260,7 +264,7 @@ static void writeHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
         c->start = ustime();
         c->latency = -1;
     }
-
+//    printf("writeHandler connfd %d \n",c->context->fd);
     if (sdslen(c->obuf) > c->written) {
         void *ptr = c->obuf+c->written;
         int nwritten = write(c->context->fd,ptr,sdslen(c->obuf)-c->written);
@@ -272,6 +276,7 @@ static void writeHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
         }
         c->written += nwritten;
         if (sdslen(c->obuf) == c->written) {
+            printf("writeHandler aeDeleteFileEvent connfd %d c->pending %d \n",c->context->fd,c->pending);
             aeDeleteFileEvent(config.el,c->context->fd,AE_WRITABLE);
             aeCreateFileEvent(config.el,c->context->fd,AE_READABLE,readHandler,c);
         }
@@ -381,6 +386,8 @@ static client createClient(char *cmd, size_t len, client from) {
             }
         }
     }
+    printf("config.el c->context->fd %d \n",c->context->fd);
+
     aeCreateFileEvent(config.el,c->context->fd,AE_WRITABLE,writeHandler,c);
     listAddNodeTail(config.clients,c);
     config.liveclients++;
@@ -418,6 +425,7 @@ static void showLatencyReport(void) {
     int i, curlat = 0;
     float perc, reqpersec;
 
+    printf("showLatencyReport\n");
     reqpersec = (float)config.requests_finished/((float)config.totlatency/1000);
     if (!config.quiet && !config.csv) {
         printf("====== %s ======\n", config.title);
@@ -452,7 +460,8 @@ static void benchmark(char *title, char *cmd, int len) {
     config.requests_finished = 0;
 
     c = createClient(cmd,len,NULL);
-    createMissingClients(c);
+    createMissingClients(c);    //批量创建client
+    printf("c->context->fd %d",c->context->fd);
 
     config.start = mstime();
     aeMain(config.el);
@@ -705,6 +714,7 @@ int main(int argc, const char **argv) {
 
         if (test_is_selected("get")) {
             len = redisFormatCommand(&cmd,"GET key:__rand_int__");
+            printf("benchmark GET\n");
             benchmark("GET",cmd,len);
             free(cmd);
         }
@@ -786,6 +796,7 @@ int main(int argc, const char **argv) {
             benchmark("MSET (10 keys)",cmd,len);
             free(cmd);
         }
+//        printf('loop \n');
 
         if (!config.csv) printf("\n");
     } while(config.loop);

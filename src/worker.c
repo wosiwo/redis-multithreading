@@ -23,29 +23,33 @@ void workerReadConnHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
 
 //通过监听管道，接收reactor线程触发的读事件
 void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
-    redisLog(REDIS_VERBOSE,"workerReadHandle pipfd %d",pipfd);
+    redisLog(REDIS_NOTICE,"workerReadHandle pipfd %d ",pipfd);
     thWorker *worker = privdata;
     int worker_id = worker->worker_id;
     int n;
-    char buf[1];
+    char buf[5];
 
-    if ((n=read(pipfd, buf, 1)) != 1) {
+    if ((n=read(pipfd, buf, 5)) != 5) {
 //        if ((n=recv(pipfd, &c, sizeof(c), 0)) > 0){
         redisLog(REDIS_WARNING,"workerReadHandle Can't read for worker(id:%d) socketpairs[1](%d) n %d",worker->worker_id,pipfd,n);
 
     }
+    redisLog(REDIS_NOTICE,"workerReadHandle connfd %s ",buf);
+
     //TODO 从无锁队列从取出client信息
     redisClient *c;
-    listNode *head;
+    listNode *node;
 
-    head = listFirst(server.worker[worker_id].clients);
-    c = listNodeValue(head);
+//    do{     //循环弹出所有队列
+        node = listPop(server.worker[worker_id].clients);
+        c = listNodeValue(node);
 
-    redisLog(REDIS_VERBOSE,"workerReadHandle reactor_id %d connfd %d %p ",c->reactor_id,c->fd,c->querybuf);
-    processInputBuffer(c);  //执行客户端操作命令
+        redisLog(REDIS_NOTICE,"workerReadHandle reactor_id %d connfd %d  querybuf %s list len %lu",c->reactor_id,c->fd,c->querybuf,server.worker[worker_id].clients->len);
+        processInputBuffer(c);  //执行客户端操作命令
+//    }while(NULL!=node);
+
 
 }
-
 
 /**
  * ReactorThread main Loop

@@ -379,6 +379,7 @@ static aeTimeEvent *aeSearchNearestTimer(aeEventLoop *eventLoop)
  * 处理所有已到达的时间事件
  */
 static int processTimeEvents(aeEventLoop *eventLoop) {
+//    printf("processTimeEvents \n");
     int processed = 0;
     aeTimeEvent *te;
     long long maxId;
@@ -558,12 +559,14 @@ int aeProcessEvents(aeEventLoop *eventLoop, int flags)
 
         // 处理文件事件，阻塞时间由 tvp 决定
         numevents = aeApiPoll(eventLoop, tvp);
+//        printf("aeProccessEvent %d \n",numevents);
         for (j = 0; j < numevents; j++) {
             // 从已就绪数组中获取事件
             aeFileEvent *fe = &eventLoop->events[eventLoop->fired[j].fd];
 
             int mask = eventLoop->fired[j].mask;
             int fd = eventLoop->fired[j].fd;
+
             int rfired = 0;
 
            /* note the fe->mask & mask & ... code: maybe an already processed
@@ -575,8 +578,12 @@ int aeProcessEvents(aeEventLoop *eventLoop, int flags)
                 rfired = 1;
                 fe->rfileProc(eventLoop,fd,fe->clientData,mask);
             }
+//            printf("aeProccessEvent fe->mask %d fd %d rfired %d \n",fe->mask,fd,rfired);
+
             // 写事件
             if (fe->mask & mask & AE_WRITABLE) {
+//                printf("aeProccessEvent AE_WRITABLE fe->mask %d fd %d rfired %d \n",fe->mask,fd,rfired);
+
                 if (!rfired || fe->wfileProc != fe->rfileProc)
                     fe->wfileProc(eventLoop,fd,fe->clientData,mask);
             }
