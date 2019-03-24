@@ -698,18 +698,20 @@ void *atomListPop(list *list) {
 
     value = listNodeValue(node);
 //    pthread_mutex_unlock(&list->mutex); //释放互斥锁
-//    printf("listPop  node val \n");
+    printf("listPop  node val \n");
 
 //    listDelNode(list, node);
 
     // 调整后置节点的指针
 //    AO_CASB(&list->tail, node, NULL); //如果当前节点是表尾节点
     // 释放节点
-    zfree(node);
+//    zfree(node);
+
+    printf("listPop  zfree(node) \n");
 
     // 链表数减一
 //    list->len--;
-    incListLen(list,-1);
+//    incListLen(list,-1);
     printf("atomListPop list->len %d \n",list->len);
 
 
@@ -797,7 +799,7 @@ list *atomListAddNodeTail(list *list, void *value)
 
     // 更新链表节点数
 //    list->len++;
-    incListLen(list,1);  //++不是原子操作
+//    incListLen(list,1);  //++不是原子操作
 
 //    AO_CASB(&list->atom_switch,0,1); //释放锁
 //    pthread_mutex_unlock(&list->mutex); //释放互斥锁
