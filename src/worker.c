@@ -41,7 +41,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
 //    listNode *node;
     void *node;
     do{     //循环弹出所有队列
-        node = listPop(server.worker[worker_id].clients);
+        node = atomListPop(server.worker[worker_id].clients);
         if(NULL==node){
             break;
         }
@@ -86,7 +86,7 @@ void rdWorkerThread_loop(int worker_id) {
     server.worker[worker_id].pidt = thread_id;
     server.worker[worker_id].el = el;
 
-    server.worker[worker_id].clients = listCreate();
+    server.worker[worker_id].clients = atomListCreate();
 
     //监听本线程管道
     int readfd = server.worker[0].pipWorkerFd;

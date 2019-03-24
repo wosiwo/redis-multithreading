@@ -37,8 +37,8 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
 
     //数据读取完需要立即触发woker线程执行，不能等待连接可写
     //将客户端信息添加到worker线程的队列中
-    listAddNodeTail(server.worker[0].clients,c);
-
+    atomListAddNodeTail(server.worker[0].clients,c);
+    printf("clients list len %d connfd  %d \n",server.worker[0].clients->len,c->fd);
 
     //通过管道通知worker线程
     int pipeWriteFd = server.worker[0].pipMasterFd;

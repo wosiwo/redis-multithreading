@@ -157,6 +157,14 @@ void listRewind(list *list, listIter *li);
 void listRewindTail(list *list, listIter *li);
 void listRotate(list *list);
 
+
+list *atomListCreate(void);
+list *atomListAddNodeTail(list *list, void *value);
+
+void *atomListPop(list *list);
+
+int incListLen(list *list,int inc);
+
 /* Directions for iterators 
  *
  * 迭代器进行迭代的方向
