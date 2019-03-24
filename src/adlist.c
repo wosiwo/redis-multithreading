@@ -31,6 +31,7 @@
 
 #include <stdlib.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include "adlist.h"
 #include "zmalloc.h"
@@ -77,6 +78,9 @@ list *listCreate(void)
  */
 void listRelease(list *list)
 {
+
+    pthread_mutex_lock(&list->mutex);   //获得互斥锁
+//    pthread_mutex_unlock(&list->mutex); //释放互斥锁
     unsigned long len;
     listNode *current, *next;
 
@@ -98,11 +102,13 @@ void listRelease(list *list)
 
     // 释放链表结构
     zfree(list);
+    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+
 }
 
 
 void *listPop(list *list) {
-//    redisLog(REDIS_NOTICE,"listPop \n");
+//    //printf("listPop list->len %lu \n",list->len);
     pthread_mutex_lock(&list->mutex);   //获得互斥锁
 //    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 //    redisLog(REDIS_NOTICE,"listPop pthread_mutex_lock \n");
@@ -117,10 +123,14 @@ void *listPop(list *list) {
         return NULL;
     }
 
-    value = listNodeValue(node);
-    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+    //printf("listPop2 list->len %lu \n",list->len);
 
-    listDelNode(list, node);
+    value = listNodeValue(node);
+    int havelock = 1;
+    listDelNodeOri(list, node,havelock);
+    //printf("listPop3 list->len %lu \n",list->len);
+
+    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
 //    if (list->free) return NULL;
 
@@ -291,14 +301,18 @@ list *listInsertNode(list *list, listNode *old_node, void *value, int after) {
  *
  * T = O(1)
  */
-void listDelNode(list *list, listNode *node)
+void listDelNode(list *list, listNode *node){
+    listDelNodeOri(list,node,0);
+}
+void listDelNodeOri(list *list, listNode *node, int havelock)
 {
     //atom_switch TODO 使用cas直接置换
 //    while(!AO_CASB(&list->atom_switch,1,0)){
 //        continue;   //循环等待获取锁
 //    }
-
-    pthread_mutex_lock(&list->mutex);   //获得互斥锁
+    if(!havelock){
+        pthread_mutex_lock(&list->mutex);   //获得互斥锁
+    }
 //    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
     // 调整前置节点的指针
@@ -322,7 +336,9 @@ void listDelNode(list *list, listNode *node)
     // 链表数减一
     list->len--;
 //    AO_CASB(&list->atom_switch,0,1);
-    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+    if(!havelock){
+        pthread_mutex_unlock(&list->mutex); //释放互斥锁
+    }
 
 }
 

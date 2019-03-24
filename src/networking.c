@@ -995,6 +995,7 @@ void replicationHandleMasterDisconnection(void) {
  */
 void freeClient(redisClient *c) {
     listNode *ln;
+    listNode *ln2;
     redisLog(REDIS_NOTICE,"freeClient c->reactor_el %p connfd %d",c->reactor_el,c->fd);
 
     /* If this is marked as current client unset it */

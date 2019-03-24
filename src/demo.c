@@ -49,6 +49,7 @@ listCreate(1);
 listAddNodeTail(1);
 listDelNode(1);
 listPop(1);
+listFirst(1);
 addReply(1);
 addReplySds(1);
 addReplyErrorFormat(1);
