@@ -204,7 +204,7 @@ static void readHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
                 fprintf(stderr,"Error: %s\n",c->context->errstr);
                 exit(1);
             }
-            printf("read connfd %d c->pending %d \n",c->context->fd,c->pending);
+//            printf("read connfd %d c->pending %d \n",c->context->fd,c->pending);
             if (reply != NULL) {
                 if (reply == (void*)REDIS_REPLY_ERROR) {
                     fprintf(stderr,"Unexpected error reply, exiting...\n");
@@ -231,7 +231,7 @@ static void readHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
                 if (config.requests_finished < config.requests)
                     config.latency[config.requests_finished++] = c->latency;
                 c->pending--;
-                printf("read connfd %d c->pending %d \n",c->context->fd,c->pending);
+//                printf("read connfd %d c->pending %d \n",c->context->fd,c->pending);
 
                 if (c->pending == 0) {
                     clientDone(c);
@@ -249,7 +249,7 @@ static void writeHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
     REDIS_NOTUSED(el);
     REDIS_NOTUSED(fd);
     REDIS_NOTUSED(mask);
-    printf("writeHandler connfd %d c->pending %d \n",c->context->fd,c->pending);
+//    printf("writeHandler connfd %d c->pending %d \n",c->context->fd,c->pending);
 
     /* Initialize request when nothing was written. */
     if (c->written == 0) {
@@ -276,7 +276,7 @@ static void writeHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
         }
         c->written += nwritten;
         if (sdslen(c->obuf) == c->written) {
-            printf("writeHandler aeDeleteFileEvent connfd %d c->pending %d \n",c->context->fd,c->pending);
+//            printf("writeHandler aeDeleteFileEvent connfd %d c->pending %d \n",c->context->fd,c->pending);
             aeDeleteFileEvent(config.el,c->context->fd,AE_WRITABLE);
             aeCreateFileEvent(config.el,c->context->fd,AE_READABLE,readHandler,c);
         }

@@ -185,6 +185,7 @@ redisClient *createClient(int fd,int use_reactor) {
     c->reactor_el = server.el;  //兼容非客户端请求连接，默认绑定主线程的事件循环
     c->use_reactor = use_reactor;  //是否使用了reactor线程
     c->cron_switch = 1;
+    c->request_times = 0;
     // 如果不是伪客户端，那么添加到服务器的客户端链表中
     if (fd != -1) listAddNodeTail(server.clients,c);
     // 初始化客户端的事务状态
@@ -225,7 +226,7 @@ redisClient *createClient(int fd,int use_reactor) {
  */
 int prepareClientToWrite(redisClient *c) {
 
-    redisLog(REDIS_NOTICE,"prepareClientToWrite  connfd %s",c->fd);
+    redisLog(REDIS_VERBOSE,"prepareClientToWrite  connfd %d",c->fd);
 
     // LUA 脚本环境所使用的伪客户端总是可写的
     if (c->flags & REDIS_LUA_CLIENT) return REDIS_OK;
@@ -241,13 +242,15 @@ int prepareClientToWrite(redisClient *c) {
     // 一般情况，为客户端套接字安装写处理器到事件循环
 //    redisLog(REDIS_WARNING,"prepareClientToWrite  reactor_id  %d connfd %d",c->reactor_id,c->fd);
 
-    if (c->bufpos == 0 && listLength(c->reply) == 0 &&
+    //c->bufpos == 0 && listLength(c->reply) == 0 &&
+    if (
         (c->replstate == REDIS_REPL_NONE ||
          c->replstate == REDIS_REPL_ONLINE) &&
 //        aeCreateFileEvent(server.el, c->fd, AE_WRITABLE,
         //使用客户端绑定的事件驱动器
         aeCreateFileEvent(c->reactor_el, c->fd, AE_WRITABLE,
-        sendReplyToClient, c) == AE_ERR) {
+        sendReplyToClient, c) == AE_ERR
+        ) {
         redisLog(REDIS_DEBUG,"aeCreateFileEvent sendReplyToClient");
         return REDIS_ERR;
     }
@@ -255,6 +258,29 @@ int prepareClientToWrite(redisClient *c) {
     return REDIS_OK;
 }
 
+/**
+ * 检查是否能给当前连接绑定回写事件
+ * @param c
+ * @return
+ */
+int prepareClientToWriteCheck(redisClient *c) {
+
+    redisLog(REDIS_VERBOSE, "prepareClientToWriteCheck  connfd %d", c->fd);
+
+    // LUA 脚本环境所使用的伪客户端总是可写的
+    if (c->flags & REDIS_LUA_CLIENT) return REDIS_OK;
+
+    // 客户端是主服务器并且不接受查询，
+    // 那么它是不可写的，出错
+    if ((c->flags & REDIS_MASTER) &&
+        !(c->flags & REDIS_MASTER_FORCE_REPLY))
+        return REDIS_ERR;
+
+    // 无连接的伪客户端总是不可写的
+    if (c->fd <= 0) return REDIS_ERR; /* Fake client */
+    return REDIS_OK;
+
+}
 /* Create a duplicate of the last object in the reply list when
  * it is not exclusively owned by the reply list. */
 // 当回复列表中的最后一个对象并非属于回复的一部分时
@@ -423,9 +449,24 @@ void _addReplyStringToList(redisClient *c, char *s, size_t len) {
  * -------------------------------------------------------------------------- */
 
 void addReply(redisClient *c, robj *obj) {
+//    redisLog(REDIS_NOTICE,"addReply reactor_id %d  c->request_times %d  connfd %d",c->reactor_id,c->request_times,c->fd);
+
+    if (prepareClientToWriteCheck(c) != REDIS_OK) return;   //检查是否需要返回信息给客户端
+//    redisLog(REDIS_NOTICE,"addReply2 reactor_id %d  c->request_times %d  connfd %d",c->reactor_id,c->request_times,c->fd);
+
+    addReplyOri(c,obj); //先复制内容的c变量中，在添加事件绑定
+    redisLog(REDIS_VERBOSE,"addReply3 reactor_id %d  c->request_times %d  connfd %d",c->reactor_id,c->request_times,c->fd);
 
     // 为客户端安装写处理器到事件循环
+    // IO是独立线程，所以绑定写事件可能会被立即触发，而这时返回的内容可能还没写入*c变量
     if (prepareClientToWrite(c) != REDIS_OK) return;
+}
+
+void addReplyOri(redisClient *c, robj *obj) {
+
+    // 为客户端安装写处理器到事件循环
+    // IO是独立线程，所以绑定写事件可能会被立即触发，而这时返回的内容可能还没写入*c变量
+//    if (prepareClientToWrite(c) != REDIS_OK) return;
 
     /* This is an important place where we can avoid copy-on-write
      * when there is a saving child running, avoiding touching the
@@ -1123,7 +1164,7 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     REDIS_NOTUSED(mask);
 
 //    redisLog(REDIS_DEBUG, "sendReplyToClient reactor_id %d nread %s",c->reactor_id,c->buf+c->sentlen);
-    redisLog(REDIS_NOTICE, "sendReplyToClient reactor_id %d connfd %d",c->reactor_id,fd);
+    redisLog(REDIS_NOTICE, "sendReplyToClient reactor_id %d  c->request_times %d  c->bufpos %d c->reply->len %d connfd %d",c->reactor_id, c->request_times,c->bufpos,c->reply->len,fd);
 
     // 一直循环，直到回复缓冲区为空
     // 或者指定条件满足为止
@@ -1138,6 +1179,8 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
             // 当出现 short write ，导致写入未能一次完成时，
             // c->buf+c->sentlen 就会偏移到正确（未写入）内容的位置上。
             nwritten = write(fd,c->buf+c->sentlen,c->bufpos-c->sentlen);
+            redisLog(REDIS_NOTICE, "sendReplyToClient reactor_id %d  c->request_times %d c->bufpos %d nwritten %d connfd %d",c->reactor_id, c->request_times,c->bufpos,nwritten,fd);
+
             // 出错则跳出
             if (nwritten <= 0) break;
             // 成功写入则更新写入计数器变量
@@ -1173,6 +1216,8 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
             // 当出现 short write ，导致写入未能一次完成时，
             // c->buf+c->sentlen 就会偏移到正确（未写入）内容的位置上。
             nwritten = write(fd, ((char*)o->ptr)+c->sentlen,objlen-c->sentlen);
+            redisLog(REDIS_NOTICE, "sendReplyToClient reactor_id %d nwritten2 %d connfd %d",c->reactor_id,nwritten,fd);
+
             // 写入出错则跳出
             if (nwritten <= 0) break;
             // 成功写入则更新写入计数器变量
@@ -1391,14 +1436,14 @@ int processMultibulkBuffer(redisClient *c) {
                 addReplyError(c,"Protocol error: too big mbulk count string");
                 setProtocolError(c,0);
             }
-            redisLog(REDIS_NOTICE,"processMultibulkBuffer newline null reactor_id %d  connfd %s",c->reactor_id,c->fd);
+            redisLog(REDIS_NOTICE,"processMultibulkBuffer newline null reactor_id %d  connfd %d",c->reactor_id,c->fd);
 
             return REDIS_ERR;
         }
         /* Buffer should also contain \n */
         if (newline-(c->querybuf) > ((signed)sdslen(c->querybuf)-2)){
 
-            redisLog(REDIS_NOTICE,"processMultibulkBuffer not contain n reactor_id %d  connfd %s",c->reactor_id,c->fd);
+            redisLog(REDIS_NOTICE,"processMultibulkBuffer not contain n reactor_id %d  connfd %d",c->reactor_id,c->fd);
             return REDIS_ERR;
 
         }
@@ -1414,7 +1459,7 @@ int processMultibulkBuffer(redisClient *c) {
         if (!ok || ll > 1024*1024) {
             addReplyError(c,"Protocol error: invalid multibulk length");
             setProtocolError(c,pos);
-            redisLog(REDIS_NOTICE,"processMultibulkBuffer invalid multibulk length reactor_id %d  connfd %s",c->reactor_id,c->fd);
+            redisLog(REDIS_NOTICE,"processMultibulkBuffer invalid multibulk length reactor_id %d  connfd %d",c->reactor_id,c->fd);
 
             return REDIS_ERR;
         }
@@ -1432,7 +1477,7 @@ int processMultibulkBuffer(redisClient *c) {
         // processInputBuffer 中有注释到 "Multibulk processing could see a <= 0 length"
         // 但并没有详细说明原因
         if (ll <= 0) {
-            redisLog(REDIS_NOTICE,"processMultibulkBuffer sdsrange reactor_id %d  connfd %s",c->reactor_id,c->fd);
+            redisLog(REDIS_NOTICE,"processMultibulkBuffer sdsrange reactor_id %d  connfd %d",c->reactor_id,c->fd);
 
             sdsrange(c->querybuf,pos,-1);
             return REDIS_OK;
@@ -1463,7 +1508,7 @@ int processMultibulkBuffer(redisClient *c) {
                     addReplyError(c,
                         "Protocol error: too big bulk count string");
                     setProtocolError(c,0);
-                    redisLog(REDIS_NOTICE,"processMultibulkBuffer newline null reactor_id %d  connfd %s",c->reactor_id,c->fd);
+                    redisLog(REDIS_NOTICE,"processMultibulkBuffer newline null reactor_id %d  connfd %d",c->reactor_id,c->fd);
 
                     return REDIS_ERR;
                 }
@@ -1481,7 +1526,7 @@ int processMultibulkBuffer(redisClient *c) {
                     c->querybuf[pos]);
                 setProtocolError(c,pos);
 
-                redisLog(REDIS_NOTICE,"processMultibulkBuffer Protocol error reactor_id %d  connfd %s",c->reactor_id,c->fd);
+                redisLog(REDIS_NOTICE,"processMultibulkBuffer Protocol error reactor_id %d  connfd %d",c->reactor_id,c->fd);
 
                 return REDIS_ERR;
             }
@@ -1492,7 +1537,7 @@ int processMultibulkBuffer(redisClient *c) {
             if (!ok || ll < 0 || ll > 512*1024*1024) {
                 addReplyError(c,"Protocol error: invalid bulk length");
                 setProtocolError(c,pos);
-                redisLog(REDIS_NOTICE,"processMultibulkBuffer Protocol error:invalid bulk length reactor_id %d  connfd %s",c->reactor_id,c->fd);
+                redisLog(REDIS_NOTICE,"processMultibulkBuffer Protocol error:invalid bulk length reactor_id %d  connfd %d",c->reactor_id,c->fd);
 
                 return REDIS_ERR;
             }
@@ -1572,7 +1617,7 @@ int processMultibulkBuffer(redisClient *c) {
     /* Still not read to process the command */
     // 如果还有参数未读取完，那么就协议内容有错
 
-    redisLog(REDIS_NOTICE,"processMultibulkBuffer Protocol error:no end reactor_id %d  connfd %s",c->reactor_id,c->fd);
+    redisLog(REDIS_NOTICE,"processMultibulkBuffer Protocol error:no end reactor_id %d  connfd %d",c->reactor_id,c->fd);
 
     return REDIS_ERR;
 }
@@ -1616,22 +1661,22 @@ void processInputBuffer(redisClient *c) {
                 c->reqtype = REDIS_REQ_INLINE;
             }
         }
-        redisLog(REDIS_NOTICE,"processInputBuffer reactor_id %d connfd %d %p c->querybuf_peak %d",c->reactor_id,c->fd,c->querybuf,c->querybuf_peak);
+        redisLog(REDIS_VERBOSE,"processInputBuffer reactor_id %d  c->request_times %d connfd %d %p c->querybuf_peak %d",c->reactor_id, c->request_times,c->fd,c->querybuf,c->querybuf_peak);
 
         // 将缓冲区中的内容转换成命令，以及命令参数
         if (c->reqtype == REDIS_REQ_INLINE) {
-            redisLog(REDIS_NOTICE,"processInlineBuffer reactor_id %d connfd %d %p c->querybuf_peak %d",c->reactor_id,c->fd,c->querybuf,c->querybuf_peak);
+            redisLog(REDIS_VERBOSE,"processInlineBuffer reactor_id %d  c->request_times %d connfd %d %p c->querybuf_peak %d",c->reactor_id, c->request_times,c->fd,c->querybuf,c->querybuf_peak);
 
             if (processInlineBuffer(c) != REDIS_OK) break;
         } else if (c->reqtype == REDIS_REQ_MULTIBULK) {
             int ret = processMultibulkBuffer(c);
-            redisLog(REDIS_NOTICE,"processMultibulkBuffer reactor_id %d connfd %d %p c->querybuf_peak %d ret %d",c->reactor_id,c->fd,c->querybuf,c->querybuf_peak,ret);
+            redisLog(REDIS_VERBOSE,"processMultibulkBuffer reactor_id %d  c->request_times %d connfd %d %p c->querybuf_peak %d ret %d",c->reactor_id, c->request_times,c->fd,c->querybuf,c->querybuf_peak,ret);
 
             if ( ret!= REDIS_OK) break;
         } else {
             redisPanic("Unknown request type");
         }
-        redisLog(REDIS_NOTICE,"processInputBuffer done reactor_id %d connfd %d %p c->querybuf_peak %d c->argc %d",c->reactor_id,c->fd,c->querybuf,c->querybuf_peak,c->argc);
+        redisLog(REDIS_VERBOSE,"processInputBuffer done reactor_id %d  c->request_times %d connfd %d %p c->querybuf_peak %d c->argc %d",c->reactor_id, c->request_times,c->fd,c->querybuf,c->querybuf_peak,c->argc);
 
         /* Multibulk processing could see a <= 0 length. */
         if (c->argc == 0) {
@@ -1640,7 +1685,7 @@ void processInputBuffer(redisClient *c) {
             /* Only reset the client when the command was executed. */
             // 执行命令，并重置客户端
             int pro_ret = processCommand(c);
-            redisLog(REDIS_NOTICE,"processInputBuffer processCommand reactor_id %d connfd %d %p c->querybuf_peak %d c->argc %d pro_ret %d",c->reactor_id,c->fd,c->querybuf,c->querybuf_peak,c->argc,pro_ret);
+            redisLog(REDIS_VERBOSE,"processInputBuffer processCommand reactor_id %d  c->request_times %d connfd %d %p c->querybuf_peak %d c->argc %d pro_ret %d",c->reactor_id, c->request_times,c->fd,c->querybuf,c->querybuf_peak,c->argc,pro_ret);
 
             if ( pro_ret== REDIS_OK)
                 resetClient(c);

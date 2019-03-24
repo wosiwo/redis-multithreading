@@ -15,6 +15,7 @@
 #include "rdb.c";
 #include "zmalloc.c";
 #include "redis-benchmark.c";
+#include "t_string.c";
 
 main(1);                                    //入口函数
 initServer(1);                             //初始化服务
@@ -28,6 +29,8 @@ createClient(1);                           //创建一个新客户端
 readQueryFromClient(1);                       //读取客户端的查询缓冲区内容
 processInputBuffer(1);                        //处理客户端输入的命令内容
 processCommand(1);
+    getGenericCommand(1);
+    lookupKeyReadOrReply(1);
 addReply(1);
 prepareClientToWrite(1);                       //将客户端连接描述符的写事件，绑定到指定的事件循环中
 sendReplyToClient(1);

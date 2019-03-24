@@ -695,6 +695,8 @@ typedef struct redisClient {
     int use_reactor; //是否使用了reactor线程
     //主线程定时任务对客户端连接的操作(回收c->query_buf缓存空间，关闭超时客户端)，不是线程安全的，所以需要原子操作保证线程安全
     int cron_switch;
+
+    int request_times;  //同一个连接请求次数
 } redisClient;
 
 // 服务器的保存条件（BGSAVE 自动执行的条件）
@@ -1582,6 +1584,7 @@ void freeClientAsync(redisClient *c);
 void resetClient(redisClient *c);
 void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask);
 void addReply(redisClient *c, robj *obj);
+void addReplyOri(redisClient *c, robj *obj);
 void *addDeferredMultiBulkLength(redisClient *c);
 void setDeferredMultiBulkLength(redisClient *c, void *node, long length);
 void addReplySds(redisClient *c, sds s);
