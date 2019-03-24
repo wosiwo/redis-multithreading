@@ -93,6 +93,9 @@ typedef struct list {
     // 链表所包含的节点数量
     unsigned long len;
 
+    //互斥锁
+    pthread_mutex_t mutex;
+
 } list;
 
 /* Functions implemented as macros */
@@ -148,7 +151,7 @@ void listReleaseIterator(listIter *iter);
 list *listDup(list *orig);
 listNode *listSearchKey(list *list, void *key);
 listNode *listIndex(list *list, long index);
-listNode *listPop(list *list);
+void *listPop(list *list);
 void listRewind(list *list, listIter *li);
 void listRewindTail(list *list, listIter *li);
 void listRotate(list *list);

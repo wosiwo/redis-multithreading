@@ -1187,7 +1187,7 @@ int clientsCronResizeQueryBuffer(redisClient *c) {
     {
         /* Only resize the query buffer if it is actually wasting space. */
         if (sdsavail(c->querybuf) > 1024) {
-            c->querybuf = sdsRemoveFreeSpace(c->querybuf);
+//            c->querybuf = sdsRemoveFreeSpace(c->querybuf);
         }
     }
     redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime);
@@ -2196,10 +2196,10 @@ void initServer() {
     /* Create the serverCron() time event, that's our main way to process
      * background operations. */
     // 为 serverCron() 创建时间事件
-    if(aeCreateTimeEvent(server.el, 1, serverCron, NULL, NULL) == AE_ERR) {
-        redisPanic("Can't create the serverCron time event.");
-        exit(1);
-    }
+//    if(aeCreateTimeEvent(server.el, 1, serverCron, NULL, NULL) == AE_ERR) {
+//        redisPanic("Can't create the serverCron time event.");
+//        exit(1);
+//    }
 
     //创建多个reactor线程来进行网络IO
     pthread_t pidt;

@@ -30,6 +30,8 @@
 
 
 #include <stdlib.h>
+#include <pthread.h>
+#include <sys/types.h>
 #include "adlist.h"
 #include "zmalloc.h"
 
@@ -60,6 +62,7 @@ list *listCreate(void)
     list->dup = NULL;
     list->free = NULL;
     list->match = NULL;
+    pthread_mutex_init(&list->mutex, NULL);
 
     return list;
 }
@@ -98,21 +101,30 @@ void listRelease(list *list)
 }
 
 
-listNode *listPop(list *list) {
+void *listPop(list *list) {
+//    redisLog(REDIS_NOTICE,"listPop \n");
+    pthread_mutex_lock(&list->mutex);   //获得互斥锁
+//    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+//    redisLog(REDIS_NOTICE,"listPop pthread_mutex_lock \n");
+
     listNode *node;
     void *value;
 
     node = listFirst(list);
     if (node == NULL) {
+        pthread_mutex_unlock(&list->mutex); //释放互斥锁
+
         return NULL;
     }
 
-//    value = listNodeValue(node);
+    value = listNodeValue(node);
+    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+
     listDelNode(list, node);
 
-    if (list->free) return NULL;
+//    if (list->free) return NULL;
 
-    return node;
+    return value;
 }
 
 /* Add a new node to the list, to head, contaning the specified 'value'
@@ -134,9 +146,12 @@ list *listAddNodeHead(list *list, void *value)
 {
     listNode *node;
     //atom_switch TODO 使用cas直接置换
-    while(!AO_CASB(&list->atom_switch,1,0)){
-        continue;   //循环等待获取锁
-    }
+//    while(!AO_CASB(&list->atom_switch,1,0)){
+//        continue;   //循环等待获取锁
+//    }
+    pthread_mutex_lock(&list->mutex);   //获得互斥锁
+//    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+
     // 为节点分配内存
     if ((node = zmalloc(sizeof(*node))) == NULL)
         return NULL;
@@ -158,7 +173,8 @@ list *listAddNodeHead(list *list, void *value)
 
     // 更新链表节点数
     list->len++;
-    AO_CASB(&list->atom_switch,0,1); //释放锁
+//    AO_CASB(&list->atom_switch,0,1); //释放锁
+    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
     return list;
 }
@@ -180,10 +196,11 @@ list *listAddNodeHead(list *list, void *value)
  */
 list *listAddNodeTail(list *list, void *value)
 {
-    //atom_switch TODO 使用cas直接置换
-    while(!AO_CASB(&list->atom_switch,1,0)){
-        continue;   //循环等待获取锁
-    }
+//    //atom_switch TODO 使用cas直接置换
+//    while(!AO_CASB(&list->atom_switch,1,0)){
+//        continue;   //循环等待获取锁
+//    }
+    pthread_mutex_lock(&list->mutex);   //获得互斥锁
     listNode *node;
 
     // 为新节点分配内存
@@ -206,7 +223,9 @@ list *listAddNodeTail(list *list, void *value)
 
     // 更新链表节点数
     list->len++;
-    AO_CASB(&list->atom_switch,0,1); //释放锁
+//    AO_CASB(&list->atom_switch,0,1); //释放锁
+    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+
     return list;
 }
 
@@ -275,9 +294,12 @@ list *listInsertNode(list *list, listNode *old_node, void *value, int after) {
 void listDelNode(list *list, listNode *node)
 {
     //atom_switch TODO 使用cas直接置换
-    while(!AO_CASB(&list->atom_switch,1,0)){
-        continue;   //循环等待获取锁
-    }
+//    while(!AO_CASB(&list->atom_switch,1,0)){
+//        continue;   //循环等待获取锁
+//    }
+
+    pthread_mutex_lock(&list->mutex);   //获得互斥锁
+//    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
     // 调整前置节点的指针
     if (node->prev)
@@ -299,7 +321,9 @@ void listDelNode(list *list, listNode *node)
 
     // 链表数减一
     list->len--;
-    AO_CASB(&list->atom_switch,0,1);
+//    AO_CASB(&list->atom_switch,0,1);
+    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+
 }
 
 /* Returns a list iterator 'iter'. After the initialization every

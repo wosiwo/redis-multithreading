@@ -449,13 +449,13 @@ void _addReplyStringToList(redisClient *c, char *s, size_t len) {
  * -------------------------------------------------------------------------- */
 
 void addReply(redisClient *c, robj *obj) {
-//    redisLog(REDIS_NOTICE,"addReply reactor_id %d  c->request_times %d  connfd %d",c->reactor_id,c->request_times,c->fd);
+//    redisLog(REDIS_NOTICE,"addReply reactor_id %d   c->request_times %d  connfd %d",c->reactor_id,c->request_times,c->fd);
 
     if (prepareClientToWriteCheck(c) != REDIS_OK) return;   //检查是否需要返回信息给客户端
 //    redisLog(REDIS_NOTICE,"addReply2 reactor_id %d  c->request_times %d  connfd %d",c->reactor_id,c->request_times,c->fd);
 
     addReplyOri(c,obj); //先复制内容的c变量中，在添加事件绑定
-    redisLog(REDIS_VERBOSE,"addReply3 reactor_id %d  c->request_times %d  connfd %d",c->reactor_id,c->request_times,c->fd);
+    redisLog(REDIS_NOTICE,"addReply3 reactor_id %d reply %s c->request_times %d  connfd %d",c->reactor_id,obj->ptr,c->request_times,c->fd);
 
     // 为客户端安装写处理器到事件循环
     // IO是独立线程，所以绑定写事件可能会被立即触发，而这时返回的内容可能还没写入*c变量
@@ -1164,7 +1164,7 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     REDIS_NOTUSED(mask);
 
 //    redisLog(REDIS_DEBUG, "sendReplyToClient reactor_id %d nread %s",c->reactor_id,c->buf+c->sentlen);
-    redisLog(REDIS_NOTICE, "sendReplyToClient reactor_id %d  c->request_times %d  c->bufpos %d c->reply->len %d connfd %d",c->reactor_id, c->request_times,c->bufpos,c->reply->len,fd);
+    redisLog(REDIS_NOTICE, "sendReplyToClient reactor_id %d  c->request_times %d  c->bufpos %d c->reply->len %d connfd %d connfd2 %d",c->reactor_id, c->request_times,c->bufpos,c->reply->len,fd,c->fd);
 
     // 一直循环，直到回复缓冲区为空
     // 或者指定条件满足为止
@@ -1179,7 +1179,7 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
             // 当出现 short write ，导致写入未能一次完成时，
             // c->buf+c->sentlen 就会偏移到正确（未写入）内容的位置上。
             nwritten = write(fd,c->buf+c->sentlen,c->bufpos-c->sentlen);
-            redisLog(REDIS_NOTICE, "sendReplyToClient reactor_id %d  c->request_times %d c->bufpos %d nwritten %d connfd %d",c->reactor_id, c->request_times,c->bufpos,nwritten,fd);
+            redisLog(REDIS_NOTICE, "sendReplyToClient reactor_id %d  c->request_times %d c->bufpos %d nwritten %d connfd %d connfd2 %d",c->reactor_id, c->request_times,c->bufpos,nwritten,fd,c->fd);
 
             // 出错则跳出
             if (nwritten <= 0) break;
@@ -1421,6 +1421,7 @@ int processMultibulkBuffer(redisClient *c) {
     char *newline = NULL;
     int pos = 0, ok;
     long long ll;
+    redisLog(REDIS_NOTICE,"processMultibulkBuffer  reactor_id %d c->multibulklen %d c->bulklen %d  connfd %d",c->reactor_id,c->multibulklen,c->bulklen,c->fd);
 
     // 读入命令的参数个数
     // 比如 *3\r\n$3\r\nSET\r\n... 将令 c->multibulklen = 3
@@ -1491,6 +1492,7 @@ int processMultibulkBuffer(redisClient *c) {
         if (c->argv) zfree(c->argv);
         c->argv = zmalloc(sizeof(robj*)*c->multibulklen);
     }
+    redisLog(REDIS_NOTICE,"processMultibulkBuffer2  reactor_id %d c->multibulklen %d c->bulklen %d  connfd %d",c->reactor_id,c->multibulklen,c->bulklen,c->fd);
 
     redisAssertWithInfo(c,NULL,c->multibulklen > 0);
 
@@ -1503,6 +1505,8 @@ int processMultibulkBuffer(redisClient *c) {
 
             // 确保 "\r\n" 存在
             newline = strchr(c->querybuf+pos,'\r');
+            redisLog(REDIS_NOTICE,"processMultibulkBuffer2.2  reactor_id %d newline %s  c->multibulklen %d c->bulklen %d  connfd %d",c->reactor_id,newline,c->multibulklen,c->bulklen,c->fd);
+
             if (newline == NULL) {
                 if (sdslen(c->querybuf) > REDIS_INLINE_MAX_SIZE) {
                     addReplyError(c,
@@ -1512,11 +1516,18 @@ int processMultibulkBuffer(redisClient *c) {
 
                     return REDIS_ERR;
                 }
+                redisLog(REDIS_NOTICE,"processMultibulkBuffer newline null reactor_id %d  connfd %d",c->reactor_id,c->fd);
+
                 break;
             }
             /* Buffer should also contain \n */
-            if (newline-(c->querybuf) > ((signed)sdslen(c->querybuf)-2))
+            redisLog(REDIS_NOTICE,"processMultibulkBuffer2.3  reactor_id %d newline-(c->querybuf) %d ((signed)sdslen(c->querybuf)-2) %d newline %s  c->multibulklen %d c->bulklen %d  connfd %d",c->reactor_id,newline-(c->querybuf),((signed)sdslen(c->querybuf)-2),newline,c->multibulklen,c->bulklen,c->fd);
+
+            if (newline-(c->querybuf) > ((signed)sdslen(c->querybuf)-2)){
+                redisLog(REDIS_NOTICE,"processMultibulkBuffer2.4 reactor_id %d newline-(c->querybuf) %d ((signed)sdslen(c->querybuf)-2) %d newline %s  c->multibulklen %d c->bulklen %d c->querybuf %s  connfd %d",c->reactor_id,newline-(c->querybuf),((signed)sdslen(c->querybuf)-2),newline,c->multibulklen,c->bulklen,c->querybuf,c->fd);
                 break;
+            }
+
 
             // 确保协议符合参数格式，检查其中的 $...
             // 比如 $3\r\nSET\r\n
@@ -1567,6 +1578,8 @@ int processMultibulkBuffer(redisClient *c) {
             }
             // 参数的长度
             c->bulklen = ll;
+            redisLog(REDIS_NOTICE,"processMultibulkBuffer3  reactor_id %d c->multibulklen %d c->bulklen %d  connfd %d",c->reactor_id,c->multibulklen,c->bulklen,c->fd);
+
         }
 
         /* Read bulk argument */
@@ -1575,6 +1588,8 @@ int processMultibulkBuffer(redisClient *c) {
             // 确保内容符合协议格式
             // 比如 $3\r\nSET\r\n 就检查 SET 之后的 \r\n
             /* Not enough data (+2 == trailing \r\n) */
+            redisLog(REDIS_NOTICE,"processMultibulkBuffer3 Not enough data  reactor_id %d c->multibulklen %d c->bulklen %d  connfd %d",c->reactor_id,c->multibulklen,c->bulklen,c->fd);
+
             break;
         } else {
             // 为参数创建字符串对象  
@@ -1603,8 +1618,11 @@ int processMultibulkBuffer(redisClient *c) {
 
             // 减少还需读入的参数个数
             c->multibulklen--;
+            redisLog(REDIS_NOTICE,"processMultibulkBuffer4   reactor_id %d c->multibulklen %d c->bulklen %d  connfd %d",c->reactor_id,c->multibulklen,c->bulklen,c->fd);
+
         }
     }
+    redisLog(REDIS_NOTICE,"processMultibulkBuffer5  reactor_id %d c->multibulklen %d c->bulklen %d  connfd %d",c->reactor_id,c->multibulklen,c->bulklen,c->fd);
 
     /* Trim to pos */
     // 从 querybuf 中删除已被读取的内容
@@ -1624,6 +1642,7 @@ int processMultibulkBuffer(redisClient *c) {
 
 // 处理客户端输入的命令内容
 void processInputBuffer(redisClient *c) {
+    redisLog(REDIS_NOTICE,"processInputBuffer reactor_id %d  c->request_times %d connfd %d %p c->querybuf_peak %d c->argc %d",c->reactor_id, c->request_times,c->fd,c->querybuf,c->querybuf_peak,c->argc);
 
     /* Keep processing while there is something in the input buffer */
     // 尽可能地处理查询缓冲区中的内容

@@ -49,7 +49,7 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     sprintf(str,"%d",connfd);   //数字转字符串
 
     ret = write(pipeWriteFd, str, 5);
-    redisLog(REDIS_VERBOSE,"reactorReadHandle reactor_id %d  c->request_times %d pipeWriteFd %d write %d connfd %s",c->reactor_id,c->request_times,pipeWriteFd,ret,str);
+    redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %d c->querybuf %s c->request_times %d pipeWriteFd %d write %d connfd %s",c->reactor_id,c->querybuf,c->request_times,pipeWriteFd,ret,str);
 
     c->cron_switch=1;       //解锁
 
