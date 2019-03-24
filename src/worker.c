@@ -56,7 +56,12 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
             freeClient(c);
             break;
         }
-        redisLog(REDIS_NOTICE,"workerReadHandle2 c %p connfd2 %s  connfd %d ",c,buf,c->fd);
+        if(NULL==c->querybuf || sdslen(c->querybuf)<1){
+            redisLog(REDIS_NOTICE,"workerReadHandle2 c->querybuf null c %p connfd2 %s  connfd %d ",c,buf,c->fd);
+
+            continue;
+        }
+        redisLog(REDIS_NOTICE,"workerReadHandle2 c %p c->querybuf %s connfd2 %s  connfd %d ",c,c->querybuf,buf,c->fd);
 
 
     redisLog(REDIS_NOTICE,"workerReadHandle reactor_id %d  c->request_times %d connfd %d  querybuf %s list len %lu",c->reactor_id, c->request_times,c->fd,c->querybuf,server.worker[worker_id].clients->len);
