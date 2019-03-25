@@ -666,7 +666,7 @@ void *atomListPop(list *list) {
     listNode *node;
     void *value;
     //printf("listPop list->len %d \n",list->len);
-
+    if(NULL==list->head) return NULL;
 
     do {
         //刷新head指针到链表头部
