@@ -43,8 +43,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
     do{     //循环弹出所有队列
         node = atomListPop(server.worker[worker_id].clients);
         if(NULL==node){
-            printf("listPop node null \n");
-
+            redisLog(REDIS_NOTICE,"listPop node null");
             break;
         }
         redisClient *c = (redisClient*) node;
@@ -69,7 +68,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
     redisLog(REDIS_NOTICE,"workerReadHandle reactor_id %d  c->request_times %d connfd %d  querybuf %s list len %lu",c->reactor_id, c->request_times,c->fd,c->querybuf,server.worker[worker_id].clients->len);
         processInputBuffer(c);  //执行客户端操作命令
     }while(NULL!=node); //循环取队列
-    printf("workerhandel loop end \n");
+    redisLog(REDIS_NOTICE,"workerhandel loop end");
 
 }
 
