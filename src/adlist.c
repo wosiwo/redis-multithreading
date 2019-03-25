@@ -774,9 +774,11 @@ void flushNodeToHead(list *list,listNode *node){
 //线程安全的将节点插入表尾
 void flushNodeToTail(list *list,listNode *node){
     listNode *tmp = NULL;
+    AO_CASB(&list->tail, NULL, node);
     do {
         if(NULL==tmp){
             tmp = list->tail; //list->head 不为空，则将node放入head指向节点的前一个节点
+            if(NULL==tmp) break;
         }else{
             tmp = tmp->next;
         }
