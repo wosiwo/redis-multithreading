@@ -52,6 +52,7 @@ typedef struct listNode {
     // 节点的值
     void *value;
 
+    int atom_switch;
 } listNode;
 
 /*

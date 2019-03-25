@@ -668,23 +668,20 @@ void *atomListPop(list *list) {
     printf("listPop list->len %d \n",list->len);
 
 
-//    node = listFirst(list);
-    flushListHead(list);
     do {
         //刷新head指针到链表头部
         node = list->head; //取链表头指针的快照
-        printf("listPop node \n");
-
-        if (node == NULL){
-            printf("listPop node null \n");
-            if(NULL==list->tail){
-                printf("listPop tail node null \n");
-                return NULL;
-            }else{
-                printf("listPop tail node not null \n");
-                flushListHeadFromTail(list);
-            }
+        if (node->next == NULL){    //链表已空
+            return NULL;
         }
+//        if(AO_CASB(node->atom_switch,1,0)==false){   //表示这个节点已经被使用过,移动到下一个节点
+//            AO_CASB(&list->head, node, list->head->next);
+//            continue;
+//        }
+        //最后一个节点不能弹出，否则不能原子的重新给head,tail两个指针同时置为NULL，也就不能保证新建链表的正确
+        //最后一个节点要保留，同时数据也要返回
+
+//        AO_CASB(node->atom_switch,0,1); //switch状态重置
     } while( AO_CASB(&list->head, node, list->head->next) != true); //如果没有把结点链在尾指针上，再试
 //    AO_CASB(&list->head, p, node); //置尾结点
     // 如果当前节点是表尾节点
@@ -730,63 +727,6 @@ void *atomListPop(list *list) {
 }
 
 
-//线程安全的刷新head指针
-void flushListHead(list *list){
-    listNode *head = NULL;
-    //刷新head指针
-    do{
-        head = list->head;
-        if(NULL==head) break;
-        if(NULL==head->prev) break;
-        AO_CASB(&list->head, head, head->prev);
-    }while(true);
-}
-//线程安全的刷新head指针
-void flushListHeadFromTail(list *list){
-    listNode *head = NULL;
-    //刷新head指针
-    AO_CASB(&list->head, NULL, list->tail);
-    flushListHead(list);
-}
-//线程安全的刷新tail指针,使之指向链表尾部
-void flushListTail(list *list){
-    listNode *tmp = NULL;
-    //刷新head指针
-    do{
-        tmp = list->head;
-        if(NULL==tmp) break;
-        if(NULL==tmp->prev) break;
-        AO_CASB(&list->head, tmp, tmp->prev);
-    }while(1);
-}
-//线程安全的将节点插入表头
-void flushNodeToHead(list *list,listNode *node){
-    listNode *tmp = NULL;
-    do {
-        if(NULL==tmp){
-            tmp = list->head; //list->head 不为空，则将node放入head指向节点的前一个节点
-        }else{
-            tmp = tmp->prev;
-        }
-        node->next = tmp;
-    } while( AO_CASB(&tmp->prev, NULL, node) != true);
-}
-//线程安全的将节点插入表尾
-void flushNodeToTail(list *list,listNode *node){
-    listNode *tmp = NULL;
-    AO_CASB(&list->tail, NULL, node);
-    do {
-        if(NULL==tmp){
-            tmp = list->tail; //list->head 不为空，则将node放入head指向节点的前一个节点
-            if(NULL==tmp) break;
-        }else{
-            tmp = tmp->next;
-        }
-        node->prev = tmp;
-
-    } while( AO_CASB(&tmp->next, NULL, node) != true); //如果没有把结点链在尾指针上，再试
-}
-
 /* Add a new node to the list, to tail, containing the specified 'value'
  * pointer as value.
  *
@@ -818,59 +758,36 @@ list *atomListAddNodeTail(list *list, void *value)
     }
     pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
-
-
     // 保存值指针
     node->value = value;
     node->next = NULL;
     node->prev = NULL;
+    node->atom_switch = 1;
 
-//    listNode *tail = list->tail;
     listNode *p;
-    listNode *head;
-    listNode *tail;
-    listNode *next;
     //节点放到表尾
 //    p = list->tail; //取链表尾指针的快照
     if(AO_CASB(&list->tail, NULL, node) == true){ //表尾指针为空
         printf("list first add \n");
-        //这时表头指针也应该为NULL
-        if(AO_CASB(&list->head, NULL, node)!=true){
+//        //使list->head 节点固定，用list->head->next来指向链表第一个节点
+//        listNode *head;
+//        head->next = NULL;
+//        list->head = head;
+        if(AO_CASB(&list->head->next, NULL, node)!=true){
             printf("list->head shoud be null except\n");
-            //追加插入到表头
-            flushNodeToHead(list,node);
-            //刷新head指针
-            flushListHead(list);
         }
     }else{
-        AO_CASB(&list->head, NULL, node);   //防止head指向NULL
+        do {
+            p = list->tail; //取链表尾指针的快照
+            node->prev = p;
+        } while( AO_CASB(&p->next, NULL, node) != TRUE); //如果没有把结点链在尾指针上，再试
 
-        //将节点插入链表尾部
-        flushNodeToTail(list,node);
-        //将list->tail 指向最后一个节点
-        flushListTail(list);
-        //刷新head指针
-        flushListHead(list);
-
+        AO_CASB(list->tail, p, node); //置尾结点
     }
-//
-//
-//    // 目标链表为空
-//    if (list->len == 0) {
-//        list->head = list->tail = node;
-//        node->prev = NULL;
-//    // 目标链表非空
-//    } else {
-//        node->prev = list->tail;
-//        list->tail->next = node;
-//        list->tail = node;
-//    }
-
     // 更新链表节点数
 //    list->len++;
 //    incListLen(list,1);  //++不是原子操作
 
-//    AO_CASB(&list->atom_switch,0,1); //释放锁
 //    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
     return list;
