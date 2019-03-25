@@ -674,18 +674,11 @@ void *atomListPop(list *list) {
         if (node->next == NULL){    //链表已空
             return NULL;
         }
-//        if(AO_CASB(node->atom_switch,1,0)==false){   //表示这个节点已经被使用过,移动到下一个节点
-//            AO_CASB(&list->head, node, list->head->next);
-//            continue;
-//        }
         //最后一个节点不能弹出，否则不能原子的重新给head,tail两个指针同时置为NULL，也就不能保证新建链表的正确
         //最后一个节点要保留，同时数据也要返回
 
 //        AO_CASB(node->atom_switch,0,1); //switch状态重置
-    } while( AO_CASB(&list->head, node, list->head->next) != true); //如果没有把结点链在尾指针上，再试
-//    AO_CASB(&list->head, p, node); //置尾结点
-    // 如果当前节点是表尾节点
-    AO_CASB(&list->tail, node, NULL);
+    } while( AO_CASB(&list->head, node, node->next) != true); //如果没有把结点链在尾指针上，再试
 
     printf("listPop get node \n");
 
@@ -695,7 +688,7 @@ void *atomListPop(list *list) {
 //        return NULL;
 //    }
 
-    value = listNodeValue(node);
+    value = listNodeValue(node->next);
 //    pthread_mutex_unlock(&list->mutex); //释放互斥锁
     printf("listPop  node val \n");
 
@@ -764,25 +757,29 @@ list *atomListAddNodeTail(list *list, void *value)
     node->prev = NULL;
     node->atom_switch = 1;
 
-    listNode *p;
+    listNode *p, *oldp;
     //节点放到表尾
 //    p = list->tail; //取链表尾指针的快照
     if(AO_CASB(&list->tail, NULL, node) == true){ //表尾指针为空
         printf("list first add \n");
 //        //使list->head 节点固定，用list->head->next来指向链表第一个节点
-//        listNode *head;
-//        head->next = NULL;
-//        list->head = head;
+        listNode *head;
+        head->next = NULL;
+        list->head = head;
         if(AO_CASB(&list->head->next, NULL, node)!=true){
             printf("list->head shoud be null except\n");
         }
     }else{
+        p = list->tail; //取链表尾指针的快照
+        oldp = p;
         do {
-            p = list->tail; //取链表尾指针的快照
+            while (p->next != NULL){
+                p = p->next;
+            }
             node->prev = p;
         } while( AO_CASB(&p->next, NULL, node) != TRUE); //如果没有把结点链在尾指针上，再试
 
-        AO_CASB(list->tail, p, node); //置尾结点
+        AO_CASB(list->tail, oldp, node); //置尾结点
     }
     // 更新链表节点数
 //    list->len++;
