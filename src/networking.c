@@ -1165,7 +1165,7 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     REDIS_NOTUSED(mask);
 
 //    redisLog(REDIS_DEBUG, "sendReplyToClient reactor_id %d nread %s",c->reactor_id,c->buf+c->sentlen);
-    redisLog(REDIS_NOTICE, "sendReplyToClient reactor_id %d  c->request_times %d  c->bufpos %d c->reply->len %d connfd %d connfd2 %d",c->reactor_id, c->request_times,c->bufpos,c->reply->len,fd,c->fd);
+    redisLog(REDIS_NOTICE, "sendReplyToClient reactor_id %d  c->request_times %d  c->bufpos %d c->reply->len %d connfd %d connfd %d",c->reactor_id, c->request_times,c->bufpos,c->reply->len,fd,c->fd);
 
     // 一直循环，直到回复缓冲区为空
     // 或者指定条件满足为止
@@ -1180,7 +1180,7 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
             // 当出现 short write ，导致写入未能一次完成时，
             // c->buf+c->sentlen 就会偏移到正确（未写入）内容的位置上。
             nwritten = write(fd,c->buf+c->sentlen,c->bufpos-c->sentlen);
-            redisLog(REDIS_NOTICE, "sendReplyToClient reactor_id %d  c->request_times %d c->bufpos %d nwritten %d connfd %d connfd2 %d",c->reactor_id, c->request_times,c->bufpos,nwritten,fd,c->fd);
+            redisLog(REDIS_NOTICE, "sendReplyToClient reactor_id %d  c->request_times %d c->bufpos %d nwritten %d connfd %d connfd %d",c->reactor_id, c->request_times,c->bufpos,nwritten,fd,c->fd);
 
             // 出错则跳出
             if (nwritten <= 0) break;
@@ -1281,6 +1281,8 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
         c->sentlen = 0;
 
         // 删除 write handler
+        redisLog(REDIS_NOTICE, "sendReplyToClient aeDeleteFileEvent reactor_id %d connfd %d",c->reactor_id,fd);
+
         aeDeleteFileEvent(c->reactor_el,c->fd,AE_WRITABLE);
 
         /* Close connection after entire reply has been sent. */

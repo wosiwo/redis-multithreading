@@ -33,6 +33,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <sys/types.h>
+#include <stdbool.h>
 #include "adlist.h"
 #include "zmalloc.h"
 
@@ -668,8 +669,9 @@ void *atomListPop(list *list) {
 
 
 //    node = listFirst(list);
-
+    flushListHead(list);
     do {
+        //刷新head指针到链表头部
         node = list->head; //取链表头指针的快照
         printf("listPop node \n");
 
@@ -680,13 +682,13 @@ void *atomListPop(list *list) {
                 return NULL;
             }else{
                 printf("listPop tail node not null \n");
+                flushListHeadFromTail(list);
             }
         }
-        if(NULL==node->next){
-            break;  //不让head重新指向null
-        }
-    } while( AO_CASB(&list->head, node, list->head->next) != TRUE); //如果没有把结点链在尾指针上，再试
+    } while( AO_CASB(&list->head, node, list->head->next) != true); //如果没有把结点链在尾指针上，再试
 //    AO_CASB(&list->head, p, node); //置尾结点
+    // 如果当前节点是表尾节点
+    AO_CASB(&list->tail, node, NULL);
 
     printf("listPop get node \n");
 
@@ -702,10 +704,14 @@ void *atomListPop(list *list) {
 
 //    listDelNode(list, node);
 
-    // 调整后置节点的指针
-//    AO_CASB(&list->tail, node, NULL); //如果当前节点是表尾节点
+
     // 释放节点
-//    zfree(node);
+    node->prev = NULL;
+    node->next = NULL;
+
+    pthread_mutex_lock(&list->mutex);   //获得互斥锁
+    zfree(node);
+    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
     printf("listPop  zfree(node) \n");
 
@@ -721,6 +727,62 @@ void *atomListPop(list *list) {
 //    if (list->free) return NULL;
 
     return value;
+}
+
+
+//线程安全的刷新head指针
+void flushListHead(list *list){
+    listNode *head = NULL;
+    //刷新head指针
+    do{
+        head = list->head;
+        if(NULL==head) break;
+        if(NULL==head->prev) break;
+        AO_CASB(&list->head, head, head->prev);
+    }while(true);
+}
+//线程安全的刷新head指针
+void flushListHeadFromTail(list *list){
+    listNode *head = NULL;
+    //刷新head指针
+    AO_CASB(&list->head, NULL, list->tail);
+    flushListHead(list);
+}
+//线程安全的刷新tail指针,使之指向链表尾部
+void flushListTail(list *list){
+    listNode *tmp = NULL;
+    //刷新head指针
+    do{
+        tmp = list->head;
+        if(NULL==tmp) break;
+        if(NULL==tmp->prev) break;
+        AO_CASB(&list->head, tmp, tmp->prev);
+    }while(1);
+}
+//线程安全的将节点插入表头
+void flushNodeToHead(list *list,listNode *node){
+    listNode *tmp = NULL;
+    do {
+        if(NULL==tmp){
+            tmp = list->head; //list->head 不为空，则将node放入head指向节点的前一个节点
+        }else{
+            tmp = tmp->prev;
+        }
+        node->next = tmp;
+    } while( AO_CASB(&tmp->prev, NULL, node) != true);
+}
+//线程安全的将节点插入表尾
+void flushNodeToTail(list *list,listNode *node){
+    listNode *tmp = NULL;
+    do {
+        if(NULL==tmp){
+            tmp = list->tail; //list->head 不为空，则将node放入head指向节点的前一个节点
+        }else{
+            tmp = tmp->next;
+        }
+        node->prev = tmp;
+
+    } while( AO_CASB(&tmp->next, NULL, node) != true); //如果没有把结点链在尾指针上，再试
 }
 
 /* Add a new node to the list, to tail, containing the specified 'value'
@@ -744,12 +806,17 @@ list *atomListAddNodeTail(list *list, void *value)
 //    while(!AO_CASB(&list->atom_switch,1,0)){
 //        continue;   //循环等待获取锁
 //    }
-//    pthread_mutex_lock(&list->mutex);   //获得互斥锁
+    pthread_mutex_lock(&list->mutex);   //获得互斥锁
     listNode *node;
 
     // 为新节点分配内存
-    if ((node = zmalloc(sizeof(*node))) == NULL)
+    if ((node = zmalloc(sizeof(*node))) == NULL){
+        pthread_mutex_unlock(&list->mutex); //释放互斥锁
         return NULL;
+    }
+    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+
+
 
     // 保存值指针
     node->value = value;
@@ -762,27 +829,27 @@ list *atomListAddNodeTail(list *list, void *value)
     listNode *tail;
     listNode *next;
     //节点放到表尾
-    p = list->tail; //取链表尾指针的快照
-    if(AO_CASB(&list->tail, NULL, node) == TRUE){ //表尾指针为空
+//    p = list->tail; //取链表尾指针的快照
+    if(AO_CASB(&list->tail, NULL, node) == true){ //表尾指针为空
         printf("list first add \n");
         //这时表头指针也应该为NULL
-        if(AO_CASB(&list->head, NULL, node)!=TRUE){
+        if(AO_CASB(&list->head, NULL, node)!=true){
             printf("list->head shoud be null except\n");
+            //追加插入到表头
+            flushNodeToHead(list,node);
+            //刷新head指针
+            flushListHead(list);
         }
     }else{
-        do {
-            p = list->tail; //取链表尾指针的快照
-        } while( AO_CASB(&p->next, NULL, node) != TRUE); //如果没有把结点链在尾指针上，再试
-        node->prev = p;
-        //将list->tail 指向最后一个节点
-        do {
-            tail = list->tail; //取链表尾指针的快照
-            if(NULL==tail->next){
-                break;
-            }
-            next = list->tail->next;
-        } while(AO_CASB(&list->tail, tail, next) != TRUE);
         AO_CASB(&list->head, NULL, node);   //防止head指向NULL
+
+        //将节点插入链表尾部
+        flushNodeToTail(list,node);
+        //将list->tail 指向最后一个节点
+        flushListTail(list);
+        //刷新head指针
+        flushListHead(list);
+
     }
 //
 //
@@ -818,7 +885,7 @@ int incListLen(list *list,int inc){
     do {
         len = list->len;
         val = len + inc; //取链表尾指针的快照
-    } while( AO_CASB(&list->len, list->len, val) != TRUE);
+    } while( AO_CASB(&list->len, list->len, val) != true);
     printf("listAddNodeTail list->len %d \n",list->len);
     return val;
 }

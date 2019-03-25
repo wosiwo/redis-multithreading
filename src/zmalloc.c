@@ -106,7 +106,7 @@ void zlibc_free(void *ptr) {
 } while(0)
 
 static size_t used_memory = 0;
-static int zmalloc_thread_safe = 0; //内存分配线程安全开关
+static int zmalloc_thread_safe = 1; //内存分配线程安全开关
 pthread_mutex_t used_memory_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void zmalloc_default_oom(size_t size) {
