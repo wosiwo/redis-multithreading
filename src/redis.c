@@ -2630,7 +2630,7 @@ int processCommand(redisClient *c) {
         flagTransaction(c);
         addReplyErrorFormat(c,"unknown command '%s'",
             (char*)c->argv[0]->ptr);
-        redisLog(REDIS_NOTICE,"processCommand unknown command connfd %d",c->fd);
+        redisLog(REDIS_VERBOSE,"processCommand unknown command connfd %d",c->fd);
         return REDIS_OK;
     } else if ((c->cmd->arity > 0 && c->cmd->arity != c->argc) ||
                (c->argc < -c->cmd->arity)) {
@@ -2638,7 +2638,7 @@ int processCommand(redisClient *c) {
         flagTransaction(c);
         addReplyErrorFormat(c,"wrong number of arguments for '%s' command",
             c->cmd->name);
-        redisLog(REDIS_NOTICE,"wrong number of arguments for %s connfd %d",c->cmd->name,c->fd);
+        redisLog(REDIS_VERBOSE,"wrong number of arguments for %s connfd %d",c->cmd->name,c->fd);
 
         return REDIS_OK;
     }
@@ -2649,7 +2649,7 @@ int processCommand(redisClient *c) {
     {
         flagTransaction(c);
         addReply(c,shared.noautherr);
-        redisLog(REDIS_NOTICE,"processCommand noautherr connfd %d",c->fd);
+        redisLog(REDIS_VERBOSE,"processCommand noautherr connfd %d",c->fd);
 
         return REDIS_OK;
     }
@@ -2732,7 +2732,7 @@ int processCommand(redisClient *c) {
         if ((c->cmd->flags & REDIS_CMD_DENYOOM) && retval == REDIS_ERR) {
             flagTransaction(c);
             addReply(c, shared.oomerr);
-            redisLog(REDIS_NOTICE,"processCommand maxmemory connfd %d",c->fd);
+            redisLog(REDIS_VERBOSE,"processCommand maxmemory connfd %d",c->fd);
 
             return REDIS_OK;
         }
@@ -2759,7 +2759,7 @@ int processCommand(redisClient *c) {
                 "-MISCONF Errors writing to the AOF file: %s\r\n",
                 strerror(server.aof_last_write_errno)));
 
-        redisLog(REDIS_NOTICE,"processCommand bgsaveerr connfd %d",c->fd);
+        redisLog(REDIS_VERBOSE,"processCommand bgsaveerr connfd %d",c->fd);
 
         return REDIS_OK;
     }
@@ -2775,7 +2775,7 @@ int processCommand(redisClient *c) {
     {
         flagTransaction(c);
         addReply(c, shared.noreplicaserr);
-        redisLog(REDIS_NOTICE,"processCommand noreplicaserr connfd %d",c->fd);
+        redisLog(REDIS_VERBOSE,"processCommand noreplicaserr connfd %d",c->fd);
 
         return REDIS_OK;
     }
@@ -2811,7 +2811,7 @@ int processCommand(redisClient *c) {
     {
         flagTransaction(c);
         addReply(c, shared.masterdownerr);
-        redisLog(REDIS_NOTICE,"processCommand masterdownerr connfd %d",c->fd);
+        redisLog(REDIS_VERBOSE,"processCommand masterdownerr connfd %d",c->fd);
 
         return REDIS_OK;
     }
@@ -2822,7 +2822,7 @@ int processCommand(redisClient *c) {
     // 标识的命令，否则将出错
     if (server.loading && !(c->cmd->flags & REDIS_CMD_LOADING)) {
         addReply(c, shared.loadingerr);
-        redisLog(REDIS_NOTICE,"processCommand REDIS_CMD_LOADING connfd %d",c->fd);
+        redisLog(REDIS_VERBOSE,"processCommand REDIS_CMD_LOADING connfd %d",c->fd);
 
         return REDIS_OK;
     }
@@ -2841,7 +2841,7 @@ int processCommand(redisClient *c) {
     {
         flagTransaction(c);
         addReply(c, shared.slowscripterr);
-        redisLog(REDIS_NOTICE,"processCommand slowscripterr connfd %d",c->fd);
+        redisLog(REDIS_VERBOSE,"processCommand slowscripterr connfd %d",c->fd);
 
         return REDIS_OK;
     }
@@ -2857,7 +2857,7 @@ int processCommand(redisClient *c) {
         queueMultiCommand(c);
         addReply(c,shared.queued);
     } else {
-        redisLog(REDIS_NOTICE,"processCommand REDIS_CALL_FULL connfd %d",c->fd);
+        redisLog(REDIS_VERBOSE,"processCommand REDIS_CALL_FULL connfd %d",c->fd);
 
         // 执行命令
         call(c,REDIS_CALL_FULL);
@@ -2888,7 +2888,7 @@ void closeListeningSockets(int unlink_unix_socket) {
         for (j = 0; j < server.cfd_count; j++) close(server.cfd[j]);
 
     if (unlink_unix_socket && server.unixsocket) {
-        redisLog(REDIS_NOTICE,"Removing the unix socket file.");
+        redisLog(REDIS_VERBOSE,"Removing the unix socket file.");
         unlink(server.unixsocket); /* don't care if this fails */
     }
 }
