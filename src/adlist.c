@@ -709,7 +709,27 @@ void *atomListPop(list *list) {
 
     return value;
 }
+//线程安全的将节点插入表尾
+void flushNodeToTail(list *list,listNode *node){
+    listNode *tmp, *oldp= NULL;
+    if(AO_CASB(&list->tail, NULL, node)==true){
+        return;
+    }
 
+
+    do {
+        if(NULL==oldp){
+            oldp = tmp = list->tail;
+        }else{
+            tmp = tmp->next;
+        }
+        if(NULL==tmp) break;
+        node->prev = tmp;
+
+    } while( AO_CASB(&tmp->next, NULL, node) != true); //如果没有把结点链在尾指针上，再试
+    AO_CASB(&list->tail, oldp, node); //置尾结点
+
+}
 
 /* Add a new node to the list, to tail, containing the specified 'value'
  * pointer as value.
@@ -767,16 +787,7 @@ list *atomListAddNodeTail(list *list, void *value)
             //printf("list->head shoud be null except\n");
         }
     }else{
-        p = list->tail; //取链表尾指针的快照
-        oldp = p;
-        do {
-            while (p->next != NULL){
-                p = p->next;
-            }
-            node->prev = p;
-        } while( AO_CASB(&p->next, NULL, node) != TRUE); //如果没有把结点链在尾指针上，再试
-
-        AO_CASB(&list->tail, oldp, node); //置尾结点
+        flushNodeToTail(list,node);
     }
     // 更新链表节点数
 //    list->len++;
