@@ -396,7 +396,7 @@ void redisLogRaw(int level, const char *msg) {
 //mt:考虑是否需要独立线程记日志
 void redisLog(int level, const char *fmt, ...) {
 //    printf("server.redis_log_atomlock1 %d \n",server.redis_log_atomlock);
-    return;
+//    return;
     //暂时用原子操作来防止printf的线程安全问题
 //    if(!AO_CASB(&server.redis_log_atomlock,1,0)){
 //        return;
