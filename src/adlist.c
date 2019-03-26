@@ -800,7 +800,7 @@ list *atomListAddNodeTail(list *list, void *value)
     }
     // 更新链表节点数
 //    list->len++;
-//    incListLen(list,1);  //++不是原子操作
+    incListLen(list,1);  //++不是原子操作
 
 //    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
@@ -813,12 +813,5 @@ list *atomListAddNodeTail(list *list, void *value)
  * @param inc
  */
 int incListLen(list *list,int inc){
-    unsigned long val;
-    unsigned long len;
-    do {
-        len = list->len;
-        val = len + inc; //取链表尾指针的快照
-    } while( AO_CASB(&list->len, list->len, val) != true);
-    //printf("listAddNodeTail list->len %d \n",list->len);
-    return val;
+    return __sync_add_and_fetch(&list->len, inc);
 }
