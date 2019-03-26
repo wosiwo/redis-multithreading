@@ -46,7 +46,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
     int i = 0;
 
     do{     //轮询各个线程的队列，循环弹出所有节点
-        reactor_id = i%(server.reactorNum-1);
+        reactor_id = i%(server.reactorNum);
         redisLog(REDIS_WARNING,"workerReadHandle reactor_id %d i %d ",reactor_id,i);
         i++;
         if(i>(server.reactorNum-1)) i=0;
