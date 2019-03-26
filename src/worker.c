@@ -89,7 +89,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
 
 //    redisLog(REDIS_WARNING,"workerReadHandle reactor_id %d  c->request_times %d connfd %d  querybuf %s list len %lu",c->reactor_id, c->request_times,c->fd,c->querybuf,server.worker[worker_id].clients->len);
         processInputBuffer(c);  //执行客户端操作命令
-    }while(NULL!=node || i<1); //循环取队列
+    }while(NULL!=node); //循环取队列
     redisLog(REDIS_VERBOSE,"workerhandel loop end");
 
 }
