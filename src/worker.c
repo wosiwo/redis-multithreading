@@ -43,9 +43,12 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
 //    listNode *node;
 
     void *node;
-    int i = 1000;
-    do{     //循环弹出所有队列
-        i--;
+    int i = 0;
+
+    do{     //轮询各个线程的队列，循环弹出所有节点
+        reactor_id = i%server.reactorNum;
+        i++;
+        if(i>(server.reactorNum-1)) i=0;
         node = atomListPop(server.reactors[reactor_id].clients);
         if(NULL==node){
             redisLog(REDIS_NOTICE,"listPop node null");
