@@ -660,19 +660,23 @@ list *atomListCreate(void)
 
 void *atomListPop(list *list) {
 //    redisLog(REDIS_NOTICE,"listPop \n");
-//    pthread_mutex_lock(&list->mutex);   //获得互斥锁
+    pthread_mutex_lock(&list->mutex);   //获得互斥锁
 //    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 //    redisLog(REDIS_NOTICE,"listPop pthread_mutex_lock \n");
 
     listNode *node;
     void *value;
     //printf("listPop list->len %d \n",list->len);
-    if(NULL==list->head) return NULL;
+    if(NULL==list->head) {
+        pthread_mutex_unlock(&list->mutex); //释放互斥锁
+        return NULL;
+    }
 
     do {
         //刷新head指针到链表头部
         node = list->head; //取链表头指针的快照
         if (node->next == NULL){    //链表已空
+            pthread_mutex_unlock(&list->mutex); //释放互斥锁
             return NULL;
         }
         //最后一个节点要保留，同时数据也要返回
@@ -691,9 +695,9 @@ void *atomListPop(list *list) {
     node->prev = NULL;
     node->next = NULL;
 
-    pthread_mutex_lock(&list->mutex);   //获得互斥锁
+//    pthread_mutex_lock(&list->mutex);   //获得互斥锁
     zfree(node);
-    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+//    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
     //printf("listPop  zfree(node) \n");
 
@@ -707,6 +711,7 @@ void *atomListPop(list *list) {
 
 
 //    if (list->free) return NULL;
+    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
     return value;
 }
@@ -768,7 +773,7 @@ list *atomListAddNodeTail(list *list, void *value)
         pthread_mutex_unlock(&list->mutex); //释放互斥锁
         return NULL;
     }
-    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+//    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
     // 保存值指针
     node->value = value;
@@ -797,7 +802,7 @@ list *atomListAddNodeTail(list *list, void *value)
 //    list->len++;
 //    incListLen(list,1);  //++不是原子操作
 
-//    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
     return list;
 }

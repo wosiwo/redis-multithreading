@@ -39,6 +39,7 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     //数据读取完需要立即触发woker线程执行，不能等待连接可写
     //将客户端信息添加到worker线程的队列中
     atomListAddNodeTail(server.worker[0].clients,c);
+    atomListAddNodeTail(server.reactors[c->reactor_id].clients,c);
 //    printf("clients list len %d connfd %d \n",server.worker[0].clients->len,c->fd);
 
     //通过管道通知worker线程
@@ -47,7 +48,8 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     buf[0] = 'c';
 
     char str[5];
-    sprintf(str,"%d",connfd);   //数字转字符串
+//    sprintf(str,"%d",connfd);   //数字转字符串
+    sprintf(str,"%d",c->reactor_id);   //数字转字符串
 
     ret = write(pipeWriteFd, str, 5);
     redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %d  c->request_times %d pipeWriteFd %d write %d c %p connfd %s",c->reactor_id,c->request_times,pipeWriteFd,ret,c,str);
@@ -85,6 +87,7 @@ void rdReactorThread_loop(int reactor_id)
     //存储线程相关信息
     server.reactors[reactor_id].pidt = thread_id;
     server.reactors[reactor_id].el = el;
+    server.reactors[reactor_id].clients = atomListCreate();
 
     //进入事件循环
     aeMain(el);

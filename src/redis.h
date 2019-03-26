@@ -847,6 +847,8 @@ typedef struct _thReactor{
     pthread_t pidt;
     aeEventLoop *el;      //reactor线程中的事件驱动器(结构体封装)
 
+    // 一个链表，保存了本线程客户端状态结构
+    list *clients;              /* List of active clients */
 } thReactor;
 //worker线程信息
 typedef struct _thWorker{
