@@ -93,6 +93,8 @@ typedef struct list {
     // 链表所包含的节点数量
     unsigned long len;
 
+    //确保tail,head指针只初始化一次
+    int atom_init;
     //互斥锁
     pthread_mutex_t mutex;
 

@@ -647,6 +647,7 @@ list *atomListCreate(void)
     list->head = list->tail = NULL;
     list->len = 0;
     list->atom_switch = 1;
+    list->atom_init = 1;
     list->dup = NULL;
     list->free = NULL;
     list->match = NULL;
@@ -776,7 +777,8 @@ list *atomListAddNodeTail(list *list, void *value)
 
     listNode *p, *oldp;
     //节点放到表尾
-    if(AO_CASB(&list->tail, NULL, node) == true){ //表尾指针为空
+    //确保只初始化一次
+    if(AO_CASB(&list->atom_init, 1, 0) == true && AO_CASB(&list->tail, NULL, node) == true){ //表尾指针为空
         //printf("list first add \n");
 //        //使list->head 节点固定，用list->head->next来指向链表第一个节点
         hnode->value = value;
@@ -787,6 +789,8 @@ list *atomListAddNodeTail(list *list, void *value)
             //printf("list->head shoud be null except\n");
         }
     }else{
+        //如果tail指针更新不及时，可能tail指针所指向的节点已经被删除
+        AO_CASB(&list->tail, NULL, list->head);
         flushNodeToTail(list,node);
     }
     // 更新链表节点数

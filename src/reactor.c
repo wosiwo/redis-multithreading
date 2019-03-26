@@ -15,22 +15,23 @@ extern struct redisServer server;
 void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     redisClient *c = (redisClient*) privdata;
     //TODO 读取数据
-    redisLog(REDIS_VERBOSE,"reactorReadHandle reactor_id %d c->request_times %d connfd %d ",c->reactor_id,c->request_times,connfd);
 
     //原子交换 cron_switch 为1时替换为0，并返回true,否则不替换，返回false
-    while(!AO_CASB(&c->cron_switch,1,0)){
-        redisLog(REDIS_DEBUG,"reactorReadHandle wait lock reactor_id %d connfd %d ",c->reactor_id,connfd);
-
-        continue;   //循环等待获取锁
-    }
+//    while(!AO_CASB(&c->cron_switch,1,0)){
+//        redisLog(REDIS_DEBUG,"reactorReadHandle wait lock reactor_id %d connfd %d ",c->reactor_id,connfd);
+//
+//        continue;   //循环等待获取锁
+//    }
 
     int ret = readQueryFromClient(el, connfd, privdata, mask);
 
     if(!ret){    //读到eof或者客户端关闭连接，不再把连接抛给woker线程
-        c->cron_switch=1;       //解锁
-        redisLog(REDIS_DEBUG,"querybuf null reactor_id %d connfd %d ",c->reactor_id,connfd);
+//        c->cron_switch=1;       //解锁
+        redisLog(REDIS_WARNING,"querybuf null reactor_id %d connfd %d ",c->reactor_id,connfd);
         return;
     }
+    redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %d c->request_times %d connfd %d ",c->reactor_id,c->request_times,connfd);
+
     c->request_times++;      //增加请求次数
     aeEventLoop *worker_el = server.worker[0].el;
 //    redisLog(REDIS_DEBUG,"reactorReadHandle reactor_id %d worker_el->fired->fd %d confd %d",c->reactor_id,worker_el->fired->fd,connfd);
@@ -49,9 +50,9 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     sprintf(str,"%d",connfd);   //数字转字符串
 
     ret = write(pipeWriteFd, str, 5);
-    redisLog(REDIS_DEBUG,"reactorReadHandle reactor_id %d c->querybuf %s c->request_times %d pipeWriteFd %d write %d c %p connfd %s",c->reactor_id,c->querybuf,c->request_times,pipeWriteFd,ret,c,str);
+    redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %d  c->request_times %d pipeWriteFd %d write %d c %p connfd %s",c->reactor_id,c->request_times,pipeWriteFd,ret,c,str);
 
-    c->cron_switch=1;       //解锁
+//    c->cron_switch=1;       //解锁
 
 //    redisLog(REDIS_WARNING,"prepare write to worker c->reactor_id %d ret %d",c->reactor_id,ret);
 

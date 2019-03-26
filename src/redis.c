@@ -383,7 +383,7 @@ void redisLogRaw(int level, const char *msg) {
         snprintf(buf+off,sizeof(buf)-off,"%03d",(int)tv.tv_usec/1000);
         fprintf(fp,"[%d] %s %c %s\n",(int)getpid(),buf,c[level],msg);
     }
-    fflush(fp);
+//    fflush(fp);
 
     if (!log_to_stdout) fclose(fp);
     if (server.syslog_enabled) syslog(syslogLevelMap[level], "%s", msg);
@@ -406,6 +406,7 @@ void redisLog(int level, const char *fmt, ...) {
     char msg[REDIS_MAX_LOGMSG_LEN];
 
     if ((level&0xff) < server.verbosity) {
+//    if ((level&0xff) < 1) {
 //        AO_CASB(&server.redis_log_atomlock,0,1);    //释放原子锁
         return;
     }
@@ -1922,7 +1923,7 @@ void initServerConfig() {
     server.watchdog_period = 0;
 
     //reactor 线程数量
-    server.reactorNum = 4;
+    server.reactorNum = 6;
     //日志输出原子锁
     server.redis_log_atomlock = 1;
 }
