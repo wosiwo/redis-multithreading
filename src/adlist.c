@@ -660,7 +660,7 @@ list *atomListCreate(void)
 
 void *atomListPop(list *list) {
 //    redisLog(REDIS_NOTICE,"listPop \n");
-    pthread_mutex_lock(&list->mutex);   //获得互斥锁
+//    pthread_mutex_lock(&list->mutex);   //获得互斥锁
 //    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 //    redisLog(REDIS_NOTICE,"listPop pthread_mutex_lock \n");
 
@@ -668,7 +668,7 @@ void *atomListPop(list *list) {
     void *value;
     //printf("listPop list->len %d \n",list->len);
     if(NULL==list->head) {
-        pthread_mutex_unlock(&list->mutex); //释放互斥锁
+//        pthread_mutex_unlock(&list->mutex); //释放互斥锁
         return NULL;
     }
 
@@ -676,7 +676,7 @@ void *atomListPop(list *list) {
         //刷新head指针到链表头部
         node = list->head; //取链表头指针的快照
         if (node->next == NULL){    //链表已空
-            pthread_mutex_unlock(&list->mutex); //释放互斥锁
+//            pthread_mutex_unlock(&list->mutex); //释放互斥锁
             return NULL;
         }
         //最后一个节点要保留，同时数据也要返回
@@ -711,7 +711,7 @@ void *atomListPop(list *list) {
 
 
 //    if (list->free) return NULL;
-    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+//    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
     return value;
 }
@@ -758,19 +758,19 @@ list *atomListAddNodeTail(list *list, void *value)
 //    while(!AO_CASB(&list->atom_switch,1,0)){
 //        continue;   //循环等待获取锁
 //    }
-    pthread_mutex_lock(&list->mutex);   //获得互斥锁
+//    pthread_mutex_lock(&list->mutex);   //获得互斥锁
     listNode *node;
     listNode *hnode;
 
 
     // 为新节点分配内存
     if ((node = zmalloc(sizeof(*node))) == NULL){
-        pthread_mutex_unlock(&list->mutex); //释放互斥锁
+//        pthread_mutex_unlock(&list->mutex); //释放互斥锁
         return NULL;
     }
     // 为临时head节点分配内存
     if ((hnode = zmalloc(sizeof(*hnode))) == NULL){
-        pthread_mutex_unlock(&list->mutex); //释放互斥锁
+//        pthread_mutex_unlock(&list->mutex); //释放互斥锁
         return NULL;
     }
 //    pthread_mutex_unlock(&list->mutex); //释放互斥锁
@@ -802,7 +802,7 @@ list *atomListAddNodeTail(list *list, void *value)
 //    list->len++;
 //    incListLen(list,1);  //++不是原子操作
 
-    pthread_mutex_unlock(&list->mutex); //释放互斥锁
+//    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 
     return list;
 }

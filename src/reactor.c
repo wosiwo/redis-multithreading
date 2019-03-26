@@ -30,17 +30,17 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
         redisLog(REDIS_WARNING,"querybuf null reactor_id %d connfd %d ",c->reactor_id,connfd);
         return;
     }
+    //加上原子锁，防止连续请求
+    if(!AO_CASB(&c->atom_read,1,0)){
+        redisLog(REDIS_WARNING,"continuous read event reactor_id %d connfd %d ",c->reactor_id,connfd);
+        return;;
+    }
+
     redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %d c->request_times %d connfd %d ",c->reactor_id,c->request_times,connfd);
 
     c->request_times++;      //增加请求次数
     aeEventLoop *worker_el = server.worker[0].el;
 //    redisLog(REDIS_DEBUG,"reactorReadHandle reactor_id %d worker_el->fired->fd %d confd %d",c->reactor_id,worker_el->fired->fd,connfd);
-
-    //数据读取完需要立即触发woker线程执行，不能等待连接可写
-    //将客户端信息添加到worker线程的队列中
-    atomListAddNodeTail(server.worker[0].clients,c);
-    atomListAddNodeTail(server.reactors[c->reactor_id].clients,c);
-//    printf("clients list len %d connfd %d \n",server.worker[0].clients->len,c->fd);
 
     //通过管道通知worker线程
     int pipeWriteFd = server.worker[0].pipMasterFd;
@@ -50,9 +50,18 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     char str[5];
 //    sprintf(str,"%d",connfd);   //数字转字符串
     sprintf(str,"%d",c->reactor_id);   //数字转字符串
+    redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %d  c->request_times %d pipeWriteFd %d write %d c %p connfd %s",c->reactor_id,c->request_times,pipeWriteFd,ret,c,str);
+
+
+    //数据读取完需要立即触发woker线程执行，不能等待连接可写
+    //将客户端信息添加到worker线程的队列中
+//    atomListAddNodeTail(server.worker[0].clients,c);
+    atomListAddNodeTail(server.reactors[c->reactor_id].clients,c);
+//    printf("clients list len %d connfd %d \n",server.worker[0].clients->len,c->fd);
+
 
     ret = write(pipeWriteFd, str, 5);
-    redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %d  c->request_times %d pipeWriteFd %d write %d c %p connfd %s",c->reactor_id,c->request_times,pipeWriteFd,ret,c,str);
+    redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %s write %d connfd %d",str,ret,connfd);
 
 //    c->cron_switch=1;       //解锁
 

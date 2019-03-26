@@ -185,6 +185,7 @@ redisClient *createClient(int fd,int use_reactor) {
     c->reactor_el = server.el;  //兼容非客户端请求连接，默认绑定主线程的事件循环
     c->use_reactor = use_reactor;  //是否使用了reactor线程
     c->cron_switch = 1;
+    c->atom_read = 1;
     c->request_times = 0;
     // 如果不是伪客户端，那么添加到服务器的客户端链表中
     if (fd != -1) listAddNodeTail(server.clients,c);
@@ -1299,6 +1300,7 @@ void resetClient(redisClient *c) {
     freeClientArgv(c);
     c->reqtype = 0;
     c->cron_switch = 1;     //TODO 考虑是否要使用原子操作
+    c->atom_read = 1;
     c->multibulklen = 0;
     c->bulklen = -1;
     /* We clear the ASKING flag as well if we are not inside a MULTI, and

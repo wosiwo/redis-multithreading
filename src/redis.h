@@ -696,6 +696,8 @@ typedef struct redisClient {
     //主线程定时任务对客户端连接的操作(回收c->query_buf缓存空间，关闭超时客户端)，不是线程安全的，所以需要原子操作保证线程安全
     int cron_switch;
 
+    int atom_read;  //防止同一个连接，在未答复前重复请求
+
     int request_times;  //同一个连接请求次数
 } redisClient;
 

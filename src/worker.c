@@ -43,7 +43,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
 //    listNode *node;
 
     void *node;
-    int i = 10;
+    int i = 1000;
     do{     //循环弹出所有队列
         i--;
         node = atomListPop(server.reactors[reactor_id].clients);
@@ -60,12 +60,12 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
         //有可能取出的c结构体中数据为空(可能是队列有问题？)
         if(NULL==c || 0==c->fd){
             redisLog(REDIS_NOTICE,"workerReadHandle data empty reactor_id %d  c->request_times %d connfd %d  querybuf %s list len %lu",c->reactor_id, c->request_times,c->fd,c->querybuf,server.worker[worker_id].clients->len);
-            freeClient(c);
+//            freeClient(c);
             break;
 //            return;
 
         }
-        if(NULL==c->querybuf || sdslen(c->querybuf)<1){
+        if(NULL==c->querybuf){
             redisLog(REDIS_NOTICE,"workerReadHandle2 c->querybuf null c %p connfd %s  connfd %d ",c,buf,c->fd);
 
             continue;
@@ -75,7 +75,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
         redisLog(REDIS_VERBOSE,"workerReadHandle2 c %p c->querybuf %s connfd %s  connfd %d ",c,c->querybuf,buf,c->fd);
 
 
-    redisLog(REDIS_WARNING,"workerReadHandle reactor_id %d  c->request_times %d connfd %d  querybuf %s list len %lu",c->reactor_id, c->request_times,c->fd,c->querybuf,server.worker[worker_id].clients->len);
+//    redisLog(REDIS_WARNING,"workerReadHandle reactor_id %d  c->request_times %d connfd %d  querybuf %s list len %lu",c->reactor_id, c->request_times,c->fd,c->querybuf,server.worker[worker_id].clients->len);
         processInputBuffer(c);  //执行客户端操作命令
     }while(NULL!=node || i<1); //循环取队列
     redisLog(REDIS_VERBOSE,"workerhandel loop end");

@@ -31,6 +31,7 @@ processInputBuffer(1);                        //处理客户端输入的命令�
 processCommand(1);
     getGenericCommand(1);
     lookupKeyReadOrReply(1);
+    resetClient(c);
 addReply(1);
 prepareClientToWrite(1);                       //将客户端连接描述符的写事件，绑定到指定的事件循环中
 sendReplyToClient(1);
