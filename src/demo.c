@@ -16,6 +16,7 @@
 #include "zmalloc.c";
 #include "redis-benchmark.c";
 #include "t_string.c";
+#include "pubsub.c";
 
 main(1);                                    //入口函数
 initServer(1);                             //初始化服务
@@ -30,6 +31,8 @@ readQueryFromClient(1);                       //读取客户端的查询缓冲�
 processInputBuffer(1);                        //处理客户端输入的命令内容
 processCommand(1);
     getGenericCommand(1);
+    getCommand(1);
+    addReplyBulk(1);
     lookupKeyReadOrReply(1);
     resetClient(c);
 addReply(1);
@@ -115,6 +118,7 @@ sdsMakeRoomFor(1);
 sdsAllocSize(1);
 zrealloc(1);
 zfree(1);
+pubsubUnsubscribeAllChannels(1);
 
 
 //redis-benchmark 压测逻辑

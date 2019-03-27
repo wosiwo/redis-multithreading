@@ -27,12 +27,12 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
 
     if(!ret){    //读到eof或者客户端关闭连接，不再把连接抛给woker线程
 //        c->cron_switch=1;       //解锁
-        redisLog(REDIS_WARNING,"querybuf null reactor_id %d connfd %d ",c->reactor_id,connfd);
+        redisLog(REDIS_NOTICE,"querybuf null reactor_id %d connfd %d ",c->reactor_id,connfd);
         return;
     }
     //加上原子锁，防止连续请求
     if(!AO_CASB(&c->atom_read,1,0)){
-        redisLog(REDIS_WARNING,"continuous read event reactor_id %d connfd %d ",c->reactor_id,connfd);
+        redisLog(REDIS_NOTICE,"continuous read event reactor_id %d connfd %d ",c->reactor_id,connfd);
         return;;
     }
 
@@ -60,8 +60,13 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
 //    printf("clients list len %d connfd %d \n",server.worker[0].clients->len,c->fd);
 
 
-    ret = write(pipeWriteFd, str, 5);
-    redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %s write %d connfd %d",str,ret,connfd);
+    //worker线程循环读取队列，可以判断worker线程状态来决定是否通过管道通知worker线程
+    //避免大量的管道读写带来的开销
+    if(0==server.worker[0].loopStatus){
+        ret = write(pipeWriteFd, str, 5);
+        redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %s write %d connfd %d",str,ret,connfd);
+    }
+
 
 //    c->cron_switch=1;       //解锁
 

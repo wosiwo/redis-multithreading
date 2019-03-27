@@ -800,7 +800,7 @@ list *atomListAddNodeTail(list *list, void *value)
     }
     // 更新链表节点数
 //    list->len++;
-    incListLen(list,1);  //++不是原子操作
+//    incListLen(list,1);  //++不是原子操作
 
 //    pthread_mutex_unlock(&list->mutex); //释放互斥锁
 

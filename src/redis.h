@@ -64,6 +64,10 @@
 #include "util.h"    /* Misc functions useful in many places */
 
 /*原子操作*/
+
+/*原子设置，如果原值和新值不一样则设置*/
+#define AO_SET(ptr, value)        ((void)__sync_lock_test_and_set((ptr), (value)))
+
 /* 原子比较交换，如果当前值等于旧指，则新值被设置，返回真值，否则返回假 */
 #define AO_CASB(ptr, comp, value) (__sync_bool_compare_and_swap((ptr), (comp), (value)) != 0 ? true : false)
 
@@ -860,6 +864,7 @@ typedef struct _thWorker{
     int pipWorkerFd;
     int pipMasterFd;
     int worker_id;
+    int loopStatus;
 
     // 一个链表，保存了本线程客户端状态结构
     list *clients;              /* List of active clients */

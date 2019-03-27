@@ -23,6 +23,7 @@ void workerReadConnHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
 
 //通过监听管道，接收reactor线程触发的读事件
 void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
+    AO_SET(&server.worker[0].loopStatus,1);
     redisLog(REDIS_NOTICE,"workerReadHandle pipfd %d ",pipfd);
     thWorker *worker = privdata;
     int worker_id = worker->worker_id;
@@ -58,8 +59,8 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
         if(NULL==node){
             nullNodes++;
             redisLog(REDIS_NOTICE,"listPop node null");
-            if(nullNodes>=6){
-                return;
+            if(nullNodes>=server.reactorNum){
+                break;
             }
             continue;
 //            return;
@@ -89,8 +90,10 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
 
 //    redisLog(REDIS_WARNING,"workerReadHandle reactor_id %d  c->request_times %d connfd %d  querybuf %s list len %lu",c->reactor_id, c->request_times,c->fd,c->querybuf,server.worker[worker_id].clients->len);
         processInputBuffer(c);  //执行客户端操作命令
-    }while(nullNodes<6); //循环取队列
+    }while(nullNodes<server.reactorNum); //循环取队列
     redisLog(REDIS_VERBOSE,"workerhandel loop end");
+
+    AO_SET(&server.worker[0].loopStatus,0);
 
 }
 
@@ -114,6 +117,7 @@ void rdWorkerThread_loop(int worker_id) {
     server.worker[worker_id].worker_id = worker_id;
     server.worker[worker_id].pidt = thread_id;
     server.worker[worker_id].el = el;
+    server.worker[worker_id].loopStatus = 0;
 
     server.worker[worker_id].clients = atomListCreate();
 
