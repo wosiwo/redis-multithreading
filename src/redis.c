@@ -1273,7 +1273,7 @@ void databasesCronWrap(struct aeEventLoop *eventLoop, long long id, void *client
  * rehashing. */
 // 对数据库执行删除过期键，调整大小，以及主动和渐进式 rehash
 void databasesCron(void) {
-    redisLog(REDIS_VERBOSE,"databasesCron");
+//    redisLog(REDIS_VERBOSE,"databasesCron");
     // 函数先从数据库中删除过期键，然后再对数据库的大小进行修改
 
     /* Expire keys by random sampling. Not required for slaves

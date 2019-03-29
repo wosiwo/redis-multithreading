@@ -39,16 +39,18 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
     redisLog(REDIS_VERBOSE,"workerReadHandle reactor_id %d ",reactor_id);
 
     void *node;
-    int i = 0;
+    long i = 0;
     int nullNodes = 0;
     do{     //轮询各个线程的队列，循环弹出所有节点
         reactor_id = i%(server.reactorNum);
         redisLog(REDIS_VERBOSE,"workerReadHandle reactor_id %d i %d ",reactor_id,i);
-        i++;
-        if(i>(server.reactorNum-1)) {
-            i=0;
+        if(i%(server.reactorNum)==0) {
             nullNodes = 0;
         }
+        if(i%(1000)==0) {   //每执行1千次命令，对数据库字典做一次清理
+            databasesCron();    //对数据库字典进行清理，以及rehash
+        }
+        i++;
 
         //从无锁队列从取出client信息
         node = atomListPop(server.reactors[reactor_id].clients);
@@ -72,14 +74,11 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
 //            freeClient(c);
             continue;
 //            return;
-
         }
         if(NULL==c->querybuf){
             redisLog(REDIS_NOTICE,"workerReadHandle2 c->querybuf null c %p connfd %s  connfd %d ",c,buf,c->fd);
-
             continue;
 //            return;
-
         }
         redisLog(REDIS_VERBOSE,"workerReadHandle2 c %p c->querybuf %s connfd %s  connfd %d ",c,c->querybuf,buf,c->fd);
 
@@ -88,6 +87,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
     redisLog(REDIS_VERBOSE,"workerhandel loop end");
 
     AO_SET(&server.worker[0].loopStatus,0);
+    databasesCron();    //对数据库字典进行清理，以及rehash
 
 }
 
@@ -118,10 +118,10 @@ void rdWorkerThread_loop(int worker_id) {
 
     //对字典的操作需要放在同一个线程中
     // 为 databasesCron() 创建时间事件
-    if(aeCreateTimeEvent(el, 1, databasesCronWrap, NULL, NULL) == AE_ERR) {
-        redisPanic("Can't create the databasesCron time event.");
-        exit(1);
-    }
+//    if(aeCreateTimeEvent(el, 1, databasesCronWrap, NULL, NULL) == AE_ERR) {
+//        redisPanic("Can't create the databasesCron time event.");
+//        exit(1);
+//    }
 
     //监听本线程管道
     int readfd = server.worker[0].pipWorkerFd;
