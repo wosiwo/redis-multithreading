@@ -36,12 +36,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
 
     }
     int reactor_id = atoi(buf);
-//    redisLog(REDIS_VERBOSE,"workerReadHandle connfd %s ",buf);
     redisLog(REDIS_VERBOSE,"workerReadHandle reactor_id %d ",reactor_id);
-
-    //TODO 从无锁队列从取出client信息
-//    redisClient *c;
-//    listNode *node;
 
     void *node;
     int i = 0;
@@ -55,6 +50,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
             nullNodes = 0;
         }
 
+        //从无锁队列从取出client信息
         node = atomListPop(server.reactors[reactor_id].clients);
         if(NULL==node){
             nullNodes++;
@@ -88,8 +84,6 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
         }
         redisLog(REDIS_VERBOSE,"workerReadHandle2 c %p c->querybuf %s connfd %s  connfd %d ",c,c->querybuf,buf,c->fd);
 
-
-//    redisLog(REDIS_WARNING,"workerReadHandle reactor_id %d  c->request_times %d connfd %d  querybuf %s list len %lu",c->reactor_id, c->request_times,c->fd,c->querybuf,server.worker[worker_id].clients->len);
         processInputBuffer(c);  //执行客户端操作命令
     }while(nullNodes<server.reactorNum); //循环取队列
     redisLog(REDIS_VERBOSE,"workerhandel loop end");

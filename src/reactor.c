@@ -27,21 +27,17 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     int ret = readQueryFromClient(el, connfd, privdata, mask);
 
     if(!ret){    //读到eof或者客户端关闭连接，不再把连接抛给woker线程
-//        c->cron_switch=1;       //解锁
         redisLog(REDIS_NOTICE,"querybuf null reactor_id %d connfd %d ",c->reactor_id,connfd);
         return;
     }
     //加上原子锁，防止连续请求
     if(!AO_CASB(&c->atom_read,1,0)){
         redisLog(REDIS_NOTICE,"continuous read event reactor_id %d connfd %d ",c->reactor_id,connfd);
-        return;;
+        return;
     }
-
-    redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %d c->request_times %d connfd %d ",c->reactor_id,c->request_times,connfd);
 
     c->request_times++;      //增加请求次数
     aeEventLoop *worker_el = server.worker[0].el;
-//    redisLog(REDIS_DEBUG,"reactorReadHandle reactor_id %d worker_el->fired->fd %d confd %d",c->reactor_id,worker_el->fired->fd,connfd);
 
     //通过管道通知worker线程
     int pipeWriteFd = server.worker[0].pipMasterFd;
@@ -67,8 +63,6 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
         ret = write(pipeWriteFd, str, 5);
         redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %s write %d connfd %d",str,ret,connfd);
     }
-
-//    redisLog(REDIS_WARNING,"prepare write to worker c->reactor_id %d ret %d",c->reactor_id,ret);
 
 
     // 绑定到worker线程的事件循环,处于线程安全问题的考虑，暂时只使用一个worker线程
