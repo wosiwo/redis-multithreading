@@ -813,6 +813,6 @@ list *atomListAddNodeTail(list *list, void *value)
  * @param list
  * @param inc
  */
-int incListLen(list *list,int inc){
-    return AO_ADD_F(&list->len, inc);
+void incListLen(list *list,int inc){
+    AO_ADD_F(&list->len, inc);
 }

@@ -64,7 +64,6 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
         }
         redisClient *c = (redisClient*) node;
 
-//        c = listNodeValue(node);
         redisLog(REDIS_VERBOSE,"workerReadHandle c %p connfd %d ",c,c->fd);
 
         //有可能取出的c结构体中数据为空(可能是队列有问题？)
@@ -122,6 +121,11 @@ void rdWorkerThread_loop(int worker_id) {
                           workerPipeReadHandle, &server.worker[worker_id]) == AE_ERR)
     {
         redisPanic("Can't create the serverCron time event.");
+    }
+    //对字典的操作需要放在同一个线程中
+    // 为 databasesCron() 创建时间事件
+    if(aeCreateTimeEvent(el, 1, databasesCron, NULL, NULL) == AE_ERR) {
+        redisPanic("Can't create the databasesCron time event.");
         exit(1);
     }
 

@@ -33,6 +33,7 @@
 #include "bio.h"
 #include "reactor.h"
 #include "worker.h"
+#include "atom.h"
 
 #include <time.h>
 #include <signal.h>
@@ -1460,7 +1461,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
 
     /* Handle background operations on Redis databases. */
     // 对数据库执行各种操作
-    databasesCron();
+//    databasesCron();  //改在worker线程中
 
     /* Start a scheduled AOF rewrite if this was requested by the user while
      * a BGSAVE was in progress. */

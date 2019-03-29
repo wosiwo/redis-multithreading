@@ -165,7 +165,7 @@ list *atomListAddNodeTail(list *list, void *value);
 
 void *atomListPop(list *list);
 
-int incListLen(list *list,int inc);
+void incListLen(list *list,int inc);
 
 /* Directions for iterators 
  *

@@ -10,7 +10,7 @@
 /*原子操作*/
 /* 原子获取 */
 #define AO_GET(ptr)               ({ (void) volatile *_val = (ptr); barrier(); (*_val); })
-/
+
 /* 通过值与旧值进行算术与位操作，返回新值 */
 #define AO_ADD_F(ptr, value)      ((void)__sync_add_and_fetch((ptr), (value)))
 #define AO_SUB_F(ptr, value)      ((void)__sync_sub_and_fetch((ptr), (value)))

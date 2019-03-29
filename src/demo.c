@@ -123,6 +123,7 @@ bgrewriteaofCommand(1);
 bgsaveCommand(1);
 rewriteAppendOnlyFileBackground(1);
 pubsubUnsubscribeAllChannels(1);
+databasesCron(1);
 
 
 //redis-benchmark 压测逻辑
