@@ -2197,10 +2197,10 @@ void initServer() {
     /* Create the serverCron() time event, that's our main way to process
      * background operations. */
     // 为 serverCron() 创建时间事件
-//    if(aeCreateTimeEvent(server.el, 1, serverCron, NULL, NULL) == AE_ERR) {
-//        redisPanic("Can't create the serverCron time event.");
-//        exit(1);
-//    }
+    if(aeCreateTimeEvent(server.el, 1, serverCron, NULL, NULL) == AE_ERR) {
+        redisPanic("Can't create the serverCron time event.");
+        exit(1);
+    }
 
     //创建多个reactor线程来进行网络IO
     pthread_t pidt;
@@ -2588,7 +2588,8 @@ void call(redisClient *c, int flags) {
         }
         redisOpArrayFree(&server.also_propagate);
     }
-    server.stat_numcommands++;
+//    server.stat_numcommands++;    //记录命令执行次数
+    AO_ADD_F(&server.stat_numcommands,1);   //改为原子操作
 }
 
 /* If this function gets called we already read a whole

@@ -60,6 +60,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
             nullNodes++;
             redisLog(REDIS_NOTICE,"listPop node null");
             if(nullNodes>=server.reactorNum){
+                AO_SET(&server.worker[0].loopStatus,0);
                 break;
             }
             continue;

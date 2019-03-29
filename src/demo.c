@@ -17,6 +17,7 @@
 #include "redis-benchmark.c";
 #include "t_string.c";
 #include "pubsub.c";
+#include "aof.c";
 
 main(1);                                    //入口函数
 initServer(1);                             //初始化服务
@@ -118,6 +119,9 @@ sdsMakeRoomFor(1);
 sdsAllocSize(1);
 zrealloc(1);
 zfree(1);
+bgrewriteaofCommand(1);
+bgsaveCommand(1);
+rewriteAppendOnlyFileBackground(1);
 pubsubUnsubscribeAllChannels(1);
 
 

@@ -36,6 +36,7 @@
 #include <stdbool.h>
 #include "adlist.h"
 #include "zmalloc.h"
+#include "atom.h"
 
 /* Create a new list. The created list can be freed with
  * AlFreeList(), but private value of every node need to be freed
@@ -813,5 +814,5 @@ list *atomListAddNodeTail(list *list, void *value)
  * @param inc
  */
 int incListLen(list *list,int inc){
-    return __sync_add_and_fetch(&list->len, inc);
+    return AO_ADD_F(&list->len, inc);
 }

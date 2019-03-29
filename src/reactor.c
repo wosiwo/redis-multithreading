@@ -17,11 +17,12 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     //TODO 读取数据
 
     //原子交换 cron_switch 为1时替换为0，并返回true,否则不替换，返回false
-//    while(!AO_CASB(&c->cron_switch,1,0)){
-//        redisLog(REDIS_DEBUG,"reactorReadHandle wait lock reactor_id %d connfd %d ",c->reactor_id,connfd);
-//
-//        continue;   //循环等待获取锁
-//    }
+    //命令执行完之前不解锁
+    //TODO epoll默认水平触发，考虑是否直接return,可以先执行其他连接的请求
+    while(!AO_CASB(&c->cron_switch,1,0)){
+        redisLog(REDIS_DEBUG,"reactorReadHandle wait lock reactor_id %d connfd %d ",c->reactor_id,connfd);
+        continue;   //循环等待获取锁
+    }
 
     int ret = readQueryFromClient(el, connfd, privdata, mask);
 
@@ -66,9 +67,6 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
         ret = write(pipeWriteFd, str, 5);
         redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %s write %d connfd %d",str,ret,connfd);
     }
-
-
-//    c->cron_switch=1;       //解锁
 
 //    redisLog(REDIS_WARNING,"prepare write to worker c->reactor_id %d ret %d",c->reactor_id,ret);
 
