@@ -115,18 +115,20 @@ void rdWorkerThread_loop(int worker_id) {
 
     server.worker[worker_id].clients = atomListCreate();
 
+
+    //对字典的操作需要放在同一个线程中
+    // 为 databasesCron() 创建时间事件
+    if(aeCreateTimeEvent(el, 1, databasesCronWrap, NULL, NULL) == AE_ERR) {
+        redisPanic("Can't create the databasesCron time event.");
+        exit(1);
+    }
+
     //监听本线程管道
     int readfd = server.worker[0].pipWorkerFd;
     if (aeCreateFileEvent(el,readfd,AE_READABLE,
                           workerPipeReadHandle, &server.worker[worker_id]) == AE_ERR)
     {
         redisPanic("Can't create the serverCron time event.");
-    }
-    //对字典的操作需要放在同一个线程中
-    // 为 databasesCron() 创建时间事件
-    if(aeCreateTimeEvent(el, 1, databasesCron, NULL, NULL) == AE_ERR) {
-        redisPanic("Can't create the databasesCron time event.");
-        exit(1);
     }
 
     //进入事件循环

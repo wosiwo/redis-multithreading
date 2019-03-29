@@ -69,10 +69,11 @@ aeProcessEvents(1);         //循环处理事件
 processTimeEvents(1);       //处理所有已到达的时间事件
 clientsCron(1);
 clientsCronResizeQueryBuffer(1);
+databasesCron(1);
 //主从同步逻辑
 //主库逻辑
     //定时任务
-    serverCron();
+    serverCron(1);
     backgroundSaveDoneHandler(1);
     updateSlavesWaitingBgsave('a');   //在每次 BGSAVE 执行完毕之后使用
     sendBulkToSlave(1); //master 将 RDB 文件发送给 slave 的写事件处理器(slave 是由reactor线程接受的，所以不能用server.el)
