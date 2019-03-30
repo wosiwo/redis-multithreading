@@ -306,8 +306,8 @@ void replicationFeedSlaves(list *slaves, int dictid, robj **argv, int argc) {
         /* Finally any additional argument that was not stored inside the
          * static buffer if any (from j to argc). */
         for (j = 0; j < argc; j++)
-            addReplyBulk(slave,argv[j]);
-//            addReplyBulkDelayEvent(slave,argv[j]);  //只添加到输出缓存，不绑定事件回调
+//            addReplyBulk(slave,argv[j]);
+            addReplyBulkDelayEvent(slave,argv[j]);  //只添加到输出缓存，不绑定事件回调
 //        prepareClientToWrite(slave);    //添加到reactor线程的事件循环中，并绑定回调函数，用于输出
 
         AO_CASB(&slave->cron_switch,0,1);
