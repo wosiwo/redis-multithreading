@@ -2298,7 +2298,7 @@ void replicationCron(void) {
 
     /* Disconnect timedout slaves. */
     // 断开超时从服务器
-    if (listLength(server.slaves)) {
+    if (listLength(server.slaves)) {    //这个时候是作为master节点？
         listIter li;
         listNode *ln;
 

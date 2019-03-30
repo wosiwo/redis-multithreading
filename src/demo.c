@@ -29,8 +29,10 @@ acceptTcpHandler(1);acceptUnixHandler(1);     //创建tcp/本地 连接
 acceptCommonHandler(1);                    //TCP 连接 accept 处理器
 createClient(1);                           //创建一个新客户端
 readQueryFromClient(1);                       //读取客户端的查询缓冲区内容
+    sdsMakeRoomFor(1);
 processInputBuffer(1);                        //处理客户端输入的命令内容
 processCommand(1);
+    call(1);
     getGenericCommand(1);
     getCommand(1);
     addReplyBulk(1);
@@ -39,6 +41,7 @@ processCommand(1);
 addReply(1);
 prepareClientToWrite(1);                       //将客户端连接描述符的写事件，绑定到指定的事件循环中
 sendReplyToClient(1);
+resetClient(c);
 
 //跳转导航
 aeApiAddEvent(1);
@@ -58,6 +61,7 @@ listFirst(1);
 addReply(1);
 addReplySds(1);
 addReplyErrorFormat(1);
+sdsempty(1);
 
 REDIS_NOTUSED(privdata);
 
@@ -69,6 +73,7 @@ aeProcessEvents(1);         //循环处理事件
 processTimeEvents(1);       //处理所有已到达的时间事件
 clientsCron(1);
 clientsCronResizeQueryBuffer(1);
+    sdsRemoveFreeSpace(1);
 databasesCron(1);
 //主从同步逻辑
 //主库逻辑
@@ -82,8 +87,15 @@ databasesCron(1);
 
 
     replicationCron(1);
-    replicationFeedSlaves(1);   //命令传播给从服务器
 
+
+    //命令执行后
+    call(1);
+    propagate(1);   //将指定命令传播到aof和slave
+    propagateExpire(1);  //过期键传播
+    replicationFeedSlaves(1);   //命令传播给从服务器
+    addReplyMultiBulkLen(1);
+    addReplyBulk(1);
     //主库接受从库请求
     //主库是把从库的请求当做一个普通命令来处理的，所以会经过reactor线程
     //sync psync命令绑定的函数
@@ -102,7 +114,7 @@ databasesCron(1);
     replicationCron(1);          //定时复制函数，每秒调用一次
     connectWithMaster(1);   //以非阻塞方式连接主服务器
     syncWithMaster(1);  //监听主服务器 fd 的读和写事件，并绑定文件事件处理器
-
+    replicationResurrectCachedMaster(1);    //接收master节点的命令传播
     readSyncBulkPayload(1); //异步 RDB 文件读取函数
     addReply(1);
     prepareClientToWrite(1);

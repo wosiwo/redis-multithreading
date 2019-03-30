@@ -455,7 +455,7 @@ void addReply(redisClient *c, robj *obj) {
     if (prepareClientToWriteCheck(c) != REDIS_OK) return;   //检查是否需要返回信息给客户端
 //    redisLog(REDIS_DEBUG,"addReply2 reactor_id %d  c->request_times %d  connfd %d",c->reactor_id,c->request_times,c->fd);
 
-    addReplyOri(c,obj); //先复制内容的c变量中，在添加事件绑定
+    addReplyOri(c,obj); //先复制内容的c->buf变量中，再添加事件绑定
     redisLog(REDIS_VERBOSE,"addReply3 reactor_id %d reply %s c->request_times %d  connfd %d",c->reactor_id,obj->ptr,c->request_times,c->fd);
 
     // 为客户端安装写处理器到事件循环
@@ -488,6 +488,9 @@ void addReplyOri(redisClient *c, robj *obj) {
             // 如果 c->buf 中的空间不够，就复制到 c->reply 链表中
             // 可能会引起内存分配
             _addReplyObjectToList(c,obj);
+        if(c->flags & REDIS_SLAVE){
+            redisLog(REDIS_NOTICE,"sdsEncodedObject c->buf %s",c->buf);
+        }
     } else if (obj->encoding == REDIS_ENCODING_INT) {
         /* Optimization: if there is room in the static buffer for 32 bytes
          * (more than the max chars a 64 bit integer can take as string) we
@@ -499,6 +502,10 @@ void addReplyOri(redisClient *c, robj *obj) {
             int len;
 
             len = ll2string(buf,sizeof(buf),(long)obj->ptr);
+
+            if(c->flags & REDIS_SLAVE){
+                redisLog(REDIS_NOTICE,"sdsEncodedObject c->buf %s",buf);
+            }
             if (_addReplyToBuffer(c,buf,len) == REDIS_OK)
                 return;
             /* else... continue with the normal code path, but should never
@@ -511,6 +518,10 @@ void addReplyOri(redisClient *c, robj *obj) {
         if (_addReplyToBuffer(c,obj->ptr,sdslen(obj->ptr)) != REDIS_OK)
             _addReplyObjectToList(c,obj);
         decrRefCount(obj);
+
+        if(c->flags & REDIS_SLAVE){
+            redisLog(REDIS_NOTICE,"sdsEncodedObject c->buf %s",c->buf);
+        }
     } else {
         redisPanic("Wrong obj->encoding in addReply()");
     }

@@ -56,7 +56,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
         node = atomListPop(server.reactors[reactor_id].clients);
         if(NULL==node){
             nullNodes++;
-            redisLog(REDIS_NOTICE,"listPop node null");
+            redisLog(REDIS_VERBOSE,"listPop node null");
             if(nullNodes>=server.reactorNum){
                 AO_SET(&server.worker[0].loopStatus,0);
                 break;
@@ -115,7 +115,7 @@ void rdWorkerThread_loop(int worker_id) {
 
     server.worker[worker_id].clients = atomListCreate();
 
-
+    //slave 节点，将命令执行放在worker线程，或者将databasesCron 任务放在主线程
     //对字典的操作需要放在同一个线程中
     // 为 databasesCron() 创建时间事件
 //    if(aeCreateTimeEvent(el, 1, databasesCronWrap, NULL, NULL) == AE_ERR) {
