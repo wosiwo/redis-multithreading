@@ -1615,6 +1615,8 @@ void replicationSetMaster(char *ip, int port) {
     // 清除原有的主服务器地址（如果有的话）
     sdsfree(server.masterhost);
 
+    server.ifMaster = 0;
+
     // IP
     server.masterhost = sdsnew(ip);
 

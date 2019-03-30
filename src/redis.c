@@ -1269,7 +1269,16 @@ void databasesCronWrap(struct aeEventLoop *eventLoop, long long id, void *client
 //        redisLog(REDIS_DEBUG,"reactorReadHandle wait lock reactor_id %d connfd %d ",c->reactor_id,connfd);
 //        return;   //循环等待获取锁
 //    }
-    databasesCron();
+    if(server.ifMaster){ //作为从库时，不在worker线程执行数据库字典的操作
+        databasesCron();
+    }
+
+}
+void databasesCronWorker() {
+    if(server.ifMaster){ //作为从库时，不在worker线程执行数据库字典的操作
+        databasesCron();
+    }
+
 }
 
 /* This function handles 'background' operations we are required to do
@@ -1476,7 +1485,9 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
 
     /* Handle background operations on Redis databases. */
     // 对数据库执行各种操作
-//    databasesCron();  //改在worker线程中
+    if(!server.ifMaster){  //作为slave节点时，在主线程执行数据库清理
+        databasesCron();  //master则改在worker线程中
+    }
 //    databasesCronWrap();
 
     /* Start a scheduled AOF rewrite if this was requested by the user while
@@ -1878,6 +1889,7 @@ void initServerConfig() {
     server.masterauth = NULL;
     server.masterhost = NULL;
     server.masterport = 6379;
+    server.ifMaster = 1;
     server.master = NULL;
     server.cached_master = NULL;
     server.repl_master_initial_offset = -1;

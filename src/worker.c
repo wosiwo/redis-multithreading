@@ -59,7 +59,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
             nullNodes = 0;
         }
         if(i%(1000)==0) {   //每执行1千次命令，对数据库字典做一次清理
-            databasesCron();    //对数据库字典进行清理，以及rehash
+            if(server.ifMaster) databasesCronWorker();    //对数据库字典进行清理，以及rehash
         }
         i++;
 
@@ -98,7 +98,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
     redisLog(REDIS_VERBOSE,"workerhandel loop end");
 
     AO_SET(&server.worker[0].loopStatus,0);
-    databasesCron();    //对数据库字典进行清理，以及rehash
+    if(server.ifMaster) databasesCronWorker();    //对数据库字典进行清理，以及rehash
 
 }
 

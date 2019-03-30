@@ -1211,6 +1211,8 @@ struct redisServer {
 
 
     /* Replication (slave) */
+    //是否主节点
+    int ifMaster;
     // 主服务器的验证密码
     char *masterauth;               /* AUTH with this password with master */
     // 主服务器的地址
@@ -1590,6 +1592,7 @@ redisClient *createClient(int fd, int use_reactor);
 void dispatch2Worker(int connfd,redisClient *c);
 void dispatch2Reactor(int connfd,redisClient *c);
 void databasesCron(void);
+void databasesCronWorker(void);
 void databasesCronWrap(struct aeEventLoop *eventLoop, long long id, void *clientData);
 void closeTimedoutClients(void);
 void freeClient(redisClient *c);
