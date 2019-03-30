@@ -1265,6 +1265,10 @@ void clientsCron(void) {
  * @param clientData
  */
 void databasesCronWrap(struct aeEventLoop *eventLoop, long long id, void *clientData) {
+//    while(!AO_CASB(&c->cron_switch,1,0)){
+//        redisLog(REDIS_DEBUG,"reactorReadHandle wait lock reactor_id %d connfd %d ",c->reactor_id,connfd);
+//        return;   //循环等待获取锁
+//    }
     databasesCron();
 }
 
@@ -1473,6 +1477,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     /* Handle background operations on Redis databases. */
     // 对数据库执行各种操作
 //    databasesCron();  //改在worker线程中
+//    databasesCronWrap();
 
     /* Start a scheduled AOF rewrite if this was requested by the user while
      * a BGSAVE was in progress. */
@@ -2480,8 +2485,10 @@ void propagate(struct redisCommand *cmd, int dbid, robj **argv, int argc,
         feedAppendOnlyFile(cmd,dbid,argv,argc);
 
     // 传播到 slave
-    if (flags & REDIS_PROPAGATE_REPL)
+    if (flags & REDIS_PROPAGATE_REPL){
+        redisLog(REDIS_WARNING,"propagate argv ");
         replicationFeedSlaves(server.slaves,dbid,argv,argc);
+    }
 }
 
 /* Used inside commands to schedule the propagation of additional commands
@@ -2577,7 +2584,7 @@ void call(redisClient *c, int flags) {
             flags |= (REDIS_PROPAGATE_REPL | REDIS_PROPAGATE_AOF);
 
         if (flags != REDIS_PROPAGATE_NONE){     //传播到aof和replication
-            redisLog(REDIS_WARNING,"after call propagate c->cmd %s",c->cmd->name);
+            redisLog(REDIS_WARNING,"after call propagate c->cmd %s c->querybuf",c->cmd->name,c->querybuf);
             propagate(c->cmd,c->db->id,c->argv,c->argc,flags);
         }
 

@@ -279,10 +279,15 @@ void replicationFeedSlaves(list *slaves, int dictid, robj **argv, int argc) {
 
     /* Write the command to every slave. */
     listRewind(slaves,&li);
+    redisLog(REDIS_WARNING,"replicationFeedSlaves slaves len %d argc %d",slaves->len,argc);
     while((ln = listNext(&li))) {
 
         // 指向从服务器
         redisClient *slave = ln->value;
+        if(!AO_CASB(&slave->cron_switch,1,0)){  //获取锁
+            redisLog(REDIS_DEBUG, "replicationFeedSlaves to slave c->cron_switch lock");
+            continue;
+        }
 
         /* Don't feed slaves that are still waiting for BGSAVE to start */
         // 不要给正在等待 BGSAVE 开始的从服务器发送命令
@@ -302,6 +307,11 @@ void replicationFeedSlaves(list *slaves, int dictid, robj **argv, int argc) {
          * static buffer if any (from j to argc). */
         for (j = 0; j < argc; j++)
             addReplyBulk(slave,argv[j]);
+//            addReplyBulkDelayEvent(slave,argv[j]);  //只添加到输出缓存，不绑定事件回调
+//        prepareClientToWrite(slave);    //添加到reactor线程的事件循环中，并绑定回调函数，用于输出
+
+        AO_CASB(&slave->cron_switch,0,1);
+
     }
 }
 
@@ -1085,6 +1095,7 @@ void readSyncBulkPayload(aeEventLoop *el, int fd, void *privdata, int mask) {
         memcpy(server.master->replrunid, server.repl_master_runid,
             sizeof(server.repl_master_runid));
 
+//        dispatch2Worker(server.repl_transfer_s,server.master); //分配reactor线程
         /* If master offset is set to -1, this master is old and is not
          * PSYNC capable, so we flag it accordingly. */
         // 如果 offset 被设置为 -1 ，那么表示主服务器的版本低于 2.8 

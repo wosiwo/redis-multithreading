@@ -1587,6 +1587,8 @@ void redisSetProcTitle(char *title);
 
 /* networking.c -- Networking and Client related operations */
 redisClient *createClient(int fd, int use_reactor);
+void dispatch2Worker(int connfd,redisClient *c);
+void dispatch2Reactor(int connfd,redisClient *c);
 void databasesCron(void);
 void databasesCronWrap(struct aeEventLoop *eventLoop, long long id, void *clientData);
 void closeTimedoutClients(void);

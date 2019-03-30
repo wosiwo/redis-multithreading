@@ -454,7 +454,9 @@ void addReply(redisClient *c, robj *obj) {
 
     if (prepareClientToWriteCheck(c) != REDIS_OK) return;   //检查是否需要返回信息给客户端
 //    redisLog(REDIS_DEBUG,"addReply2 reactor_id %d  c->request_times %d  connfd %d",c->reactor_id,c->request_times,c->fd);
-
+    if(c->flags & REDIS_SLAVE){
+        redisLog(REDIS_WARNING,"sdsEncodedObject1 c->buf %s",obj->ptr);
+    }
     addReplyOri(c,obj); //先复制内容的c->buf变量中，再添加事件绑定
     redisLog(REDIS_VERBOSE,"addReply3 reactor_id %d reply %s c->request_times %d  connfd %d",c->reactor_id,obj->ptr,c->request_times,c->fd);
 
@@ -489,7 +491,7 @@ void addReplyOri(redisClient *c, robj *obj) {
             // 可能会引起内存分配
             _addReplyObjectToList(c,obj);
         if(c->flags & REDIS_SLAVE){
-            redisLog(REDIS_NOTICE,"sdsEncodedObject c->buf %s",c->buf);
+            redisLog(REDIS_WARNING,"sdsEncodedObject1 c->buf %s",c->buf);
         }
     } else if (obj->encoding == REDIS_ENCODING_INT) {
         /* Optimization: if there is room in the static buffer for 32 bytes
@@ -504,7 +506,7 @@ void addReplyOri(redisClient *c, robj *obj) {
             len = ll2string(buf,sizeof(buf),(long)obj->ptr);
 
             if(c->flags & REDIS_SLAVE){
-                redisLog(REDIS_NOTICE,"sdsEncodedObject c->buf %s",buf);
+                redisLog(REDIS_WARNING,"sdsEncodedObject2 c->buf %s",buf);
             }
             if (_addReplyToBuffer(c,buf,len) == REDIS_OK)
                 return;
@@ -520,7 +522,7 @@ void addReplyOri(redisClient *c, robj *obj) {
         decrRefCount(obj);
 
         if(c->flags & REDIS_SLAVE){
-            redisLog(REDIS_NOTICE,"sdsEncodedObject c->buf %s",c->buf);
+            redisLog(REDIS_WARNING,"sdsEncodedObject3 c->buf %s",c->buf);
         }
     } else {
         redisPanic("Wrong obj->encoding in addReply()");
@@ -549,6 +551,11 @@ void addReplySds(redisClient *c, sds s) {
  */
 void addReplyString(redisClient *c, char *s, size_t len) {
     if (prepareClientToWrite(c) != REDIS_OK) return;
+    if (_addReplyToBuffer(c,s,len) != REDIS_OK)
+        _addReplyStringToList(c,s,len);
+}
+void addReplyStringDelayEvent(redisClient *c, char *s, size_t len) {
+    if (prepareClientToWriteCheck(c) != REDIS_OK) return;
     if (_addReplyToBuffer(c,s,len) != REDIS_OK)
         _addReplyStringToList(c,s,len);
 }
@@ -705,7 +712,30 @@ void addReplyLongLongWithPrefix(redisClient *c, long long ll, char prefix) {
     buf[len+2] = '\n';
     addReplyString(c,buf,len+3);
 }
+//不直接绑定回调事件
+void addReplyLongLongWithPrefixDelayEvent(redisClient *c, long long ll, char prefix) {
+    char buf[128];
+    int len;
 
+    /* Things like $3\r\n or *2\r\n are emitted very often by the protocol
+     * so we have a few shared objects to use if the integer is small
+     * like it is most of the times. */
+    if (prefix == '*' && ll < REDIS_SHARED_BULKHDR_LEN) {
+        // 多条批量回复
+        addReplyOri(c,shared.mbulkhdr[ll]);
+        return;
+    } else if (prefix == '$' && ll < REDIS_SHARED_BULKHDR_LEN) {
+        // 批量回复
+        addReplyOri(c,shared.bulkhdr[ll]);
+        return;
+    }
+
+    buf[0] = prefix;
+    len = ll2string(buf+1,sizeof(buf)-1,ll);
+    buf[len+1] = '\r';
+    buf[len+2] = '\n';
+    addReplyStringDelayEvent(c,buf,len+3);
+}
 /*
  * 返回一个整数回复
  * 
@@ -728,7 +758,7 @@ void addReplyMultiBulkLen(redisClient *c, long length) {
 }
 
 /* Create the length prefix of a bulk reply, example: $2234 */
-void addReplyBulkLen(redisClient *c, robj *obj) {
+void addReplyBulkLen(redisClient *c, robj *obj, int delayEvent) {
     size_t len;
 
     if (sdsEncodedObject(obj)) {
@@ -746,6 +776,14 @@ void addReplyBulkLen(redisClient *c, robj *obj) {
             len++;
         }
     }
+    if(delayEvent){
+        if (len < REDIS_SHARED_BULKHDR_LEN)
+            addReplyOri(c,shared.bulkhdr[len]);
+        else
+            addReplyLongLongWithPrefixDelayEvent(c,len,'$');
+
+        return;
+    }
 
     if (len < REDIS_SHARED_BULKHDR_LEN)
         addReply(c,shared.bulkhdr[len]);
@@ -753,12 +791,26 @@ void addReplyBulkLen(redisClient *c, robj *obj) {
         addReplyLongLongWithPrefix(c,len,'$');
 }
 
+
+/* Add a Redis Object as a bulk reply
+ *
+ * 返回一个 Redis 对象作为回复
+ * 只添加到c->buf缓存,不绑定回调事件(主从同步的时候，会循环执行本方法，所以不能提前绑定回调事件)
+ */
+void addReplyBulkDelayEvent(redisClient *c, robj *obj) {
+    if (prepareClientToWriteCheck(c) != REDIS_OK) return;   //检查是否需要返回信息给客户端
+    addReplyBulkLen(c,obj,1);
+    addReplyOri(c,obj);
+    addReplyOri(c,shared.crlf);
+}
+
+
 /* Add a Redis Object as a bulk reply 
  *
  * 返回一个 Redis 对象作为回复
  */
 void addReplyBulk(redisClient *c, robj *obj) {
-    addReplyBulkLen(c,obj);
+    addReplyBulkLen(c,obj,0);
     addReply(c,obj);
     addReply(c,shared.crlf);
 }
@@ -816,6 +868,19 @@ void copyClientOutputBuffer(redisClient *dst, redisClient *src) {
     dst->reply_bytes = src->reply_bytes;
 }
 
+//主从同步专用，避免master节点连续写入造成的问题
+void dispatch2Worker(int connfd,redisClient *c){
+    c->reactor_el = server.worker[0].el; //绑定线程事件循环
+    c->reactor_id = 0; //绑定线程事件循环
+    if (aeCreateFileEvent(server.worker[0].el,connfd,AE_READABLE,
+                          readQueryFromClient, c) == AE_ERR)
+    {
+        redisLog(REDIS_DEBUG,"dispatch2Worker readQueryFromClient AE_ERR %d",AE_ERR);
+
+        close(connfd);
+        zfree(c);
+    }
+}
 void dispatch2Reactor(int connfd,redisClient *c){
     int reactor_id = connfd%server.reactorNum; //连接fd对REACTOR_NUM取余，决定抛给哪个reactor线程
     aeEventLoop *reactor_el = server.reactors[reactor_id].el;    //获取指定线程的事件驱动器
@@ -1170,6 +1235,13 @@ void freeClientsInAsyncFreeQueue(void) {
  */
 void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     redisClient *c = privdata;
+//    //master节点循环传播命令给slave节点，会造成线程安全问题，需要加锁
+    if(c->flags & REDIS_SLAVE){
+        if(!AO_CASB(&c->cron_switch,1,0)){
+            redisLog(REDIS_DEBUG, "sendReplyToClient to slave c->cron_switch lock reactor_id %d   connfd %d connfd %d",c->reactor_id,c->fd);
+            return;
+        }
+    }
     int nwritten = 0, totwritten = 0, objlen;
     size_t objmem;
     robj *o;
@@ -1297,6 +1369,9 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
 
         aeDeleteFileEvent(c->reactor_el,c->fd,AE_WRITABLE);
 
+        if(c->flags & REDIS_SLAVE){
+            AO_CASB(&c->cron_switch,0,1);   //释放锁
+        }
         /* Close connection after entire reply has been sent. */
         // 如果指定了写入之后关闭客户端 FLAG ，那么关闭客户端
         if (c->flags & REDIS_CLOSE_AFTER_REPLY) freeClient(c);
@@ -1416,9 +1491,9 @@ int processInlineBuffer(redisClient *c) {
 static void setProtocolError(redisClient *c, int pos) {
     //如果是主从同步，不关闭客户端
     if(c->flags & REDIS_MASTER){
-        c->querybuf = sdsRemoveFreeSpace(c->querybuf);//清空错误协议的请求命令
-        redisLog(REDIS_VERBOSE,"master sync Protocol error skip");
-        return;
+//        c->querybuf = sdsRemoveFreeSpace(c->querybuf);//清空错误协议的请求命令
+//        redisLog(REDIS_VERBOSE,"master sync Protocol error skip");
+//        return;
     }
     if (server.verbosity >= REDIS_VERBOSE) {
         sds client = catClientInfoString(sdsempty(),c);
@@ -1782,7 +1857,7 @@ int readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     redisLog(REDIS_DEBUG,"reactor_id %d c->querybuf %p free %d readlen %d connfd %d",c->reactor_id,c->querybuf,sh->free,readlen,fd);
     c->querybuf = sdsMakeRoomFor(c->querybuf, readlen);
     sh1 = (void*) (c->querybuf-(sizeof(struct sdshdr)));
-    redisLog(REDIS_WARNING,"reactor_id %d sdsMakeRoomFor c->querybuf1 %s  free %d connfd %d",c->reactor_id,c->querybuf,sh1->free,fd);
+    redisLog(REDIS_VERBOSE,"reactor_id %d sdsMakeRoomFor c->querybuf1 %s  free %d connfd %d",c->reactor_id,c->querybuf,sh1->free,fd);
     // 读入内容到查询缓存
     nread = read(fd, c->querybuf+qblen, readlen);
 
@@ -1843,12 +1918,14 @@ int readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
 
     // 从查询缓存重读取内容，创建参数，并执行命令
     // 函数会执行到缓存中的所有内容都被处理完为止
-    if(0==c->use_reactor){  //不使用reactor线程时(非客户端请求),直接执行命令
+    if(0==c->use_reactor || c->flags & REDIS_MASTER){  //不使用reactor线程时(非客户端请求),直接执行命令
+        if(c->flags & REDIS_MASTER) {
+            redisLog(REDIS_WARNING, "sync to replication query buffer  %s", c->querybuf);
+        }
         processInputBuffer(c);
         if(c->flags & REDIS_MASTER){
-            redisLog(REDIS_WARNING,"sync to replication query buffer  %s", c->querybuf);
             //主从同步的情况下，master节点不等replication节点返回,会连续的向connfd写入数据，因此在每次执行后清空c->querybuf
-            c->querybuf = sdsempty();
+//            c->querybuf = sdsempty();
             redisLog(REDIS_WARNING,"sync to replication2 query buffer  %s", c->querybuf);
 
         }

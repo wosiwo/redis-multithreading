@@ -10,6 +10,7 @@
 
 
 void workerReadConnHandle(aeEventLoop *el,int connfd, void *privdata, int mask);
+void syncReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask);
 void workerPipeReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask);
 void rdWorkerThread_loop(int worker_id);
 

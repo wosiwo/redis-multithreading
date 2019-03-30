@@ -95,6 +95,7 @@ databasesCron(1);
     propagateExpire(1);  //过期键传播
     replicationFeedSlaves(1);   //命令传播给从服务器
     addReplyMultiBulkLen(1);
+    addReplyBulkDelayEvent(1);
     addReplyBulk(1);
     //主库接受从库请求
     //主库是把从库的请求当做一个普通命令来处理的，所以会经过reactor线程
