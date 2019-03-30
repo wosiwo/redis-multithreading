@@ -41,16 +41,17 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
     int n;
     char buf[5];
     int reactor_id;
+    long i = 0;
+
     if (pipfd>0 && (n=read(pipfd, buf, 5)) != 5) {
 //        if ((n=recv(pipfd, &c, sizeof(c), 0)) > 0){
         redisLog(REDIS_WARNING,"workerReadHandle Can't read for worker(id:%d) socketpairs[1](%d) n %d",worker->worker_id,pipfd,n);
 
     }
-//    int reactor_id = atoi(buf);
+    if(n>0) i = atoi(buf);  //第一次直接从指定reactor线程的队列取数据
 //    redisLog(REDIS_VERBOSE,"workerReadHandle reactor_id %d ",reactor_id);
 
     void *node;
-    long i = 0;
     int nullNodes = 0;
     do{     //轮询各个线程的队列，循环弹出所有节点
         reactor_id = i%(server.reactorNum);
@@ -91,7 +92,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
             continue;
 //            return;
         }
-        redisLog(REDIS_WARNING,"workerReadHandle2 c %p c->querybuf %s connfd %s  connfd %d ",c,c->querybuf,buf,c->fd);
+        redisLog(REDIS_VERBOSE,"workerReadHandle2 c %p c->querybuf %s connfd %s  connfd %d ",c,c->querybuf,buf,c->fd);
 
         processInputBuffer(c);  //执行客户端操作命令
     }while(nullNodes<server.reactorNum); //循环取队列

@@ -18,7 +18,7 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     //原子交换 cron_switch 为1时替换为0，并返回true,否则不替换，返回false
     //命令执行完之前不解锁
     //TODO epoll默认水平触发，考虑是否直接return,可以先执行其他连接的请求
-    while(!AO_CASB(&c->cron_switch,1,0)){
+    while(!AO_CASB(&c->cron_switch,1,0) && !(c->flags & REDIS_SLAVE)){
         redisLog(REDIS_DEBUG,"reactorReadHandle wait lock reactor_id %d connfd %d ",c->reactor_id,connfd);
         continue;   //循环等待获取锁
     }
@@ -30,7 +30,7 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
         return;
     }
     //加上原子锁，防止连续请求
-    if(!AO_CASB(&c->atom_read,1,0)){
+    if(!AO_CASB(&c->atom_read,1,0) && !(c->flags & REDIS_SLAVE)){
         redisLog(REDIS_NOTICE,"continuous read event reactor_id %d connfd %d ",c->reactor_id,connfd);
         return;
     }
@@ -46,7 +46,7 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     char str[5];
 //    sprintf(str,"%d",connfd);   //数字转字符串
     sprintf(str,"%d",c->reactor_id);   //数字转字符串
-    redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %d  c->request_times %d pipeWriteFd %d write %d c %p connfd %s",c->reactor_id,c->request_times,pipeWriteFd,ret,c,str);
+    redisLog(REDIS_VERBOSE,"reactorReadHandle reactor_id %d  c->request_times %d pipeWriteFd %d write %d c %p connfd %s",c->reactor_id,c->request_times,pipeWriteFd,ret,c,str);
 
 
     //将客户端信息添加到worker线程的队列中

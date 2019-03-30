@@ -279,7 +279,7 @@ void replicationFeedSlaves(list *slaves, int dictid, robj **argv, int argc) {
 
     /* Write the command to every slave. */
     listRewind(slaves,&li);
-    redisLog(REDIS_WARNING,"replicationFeedSlaves slaves len %d argc %d",slaves->len,argc);
+    redisLog(REDIS_VERBOSE,"replicationFeedSlaves slaves len %d argc %d",slaves->len,argc);
     while((ln = listNext(&li))) {
 
         // 指向从服务器

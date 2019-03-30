@@ -2498,7 +2498,7 @@ void propagate(struct redisCommand *cmd, int dbid, robj **argv, int argc,
 
     // 传播到 slave
     if (flags & REDIS_PROPAGATE_REPL){
-        redisLog(REDIS_WARNING,"propagate argv ");
+        redisLog(REDIS_VERBOSE,"propagate argv ");
         replicationFeedSlaves(server.slaves,dbid,argv,argc);
     }
 }
@@ -2596,7 +2596,7 @@ void call(redisClient *c, int flags) {
             flags |= (REDIS_PROPAGATE_REPL | REDIS_PROPAGATE_AOF);
 
         if (flags != REDIS_PROPAGATE_NONE){     //传播到aof和replication
-            redisLog(REDIS_WARNING,"after call propagate c->cmd %s c->querybuf",c->cmd->name,c->querybuf);
+            redisLog(REDIS_VERBOSE,"after call propagate c->cmd %s c->querybuf",c->cmd->name,c->querybuf);
             propagate(c->cmd,c->db->id,c->argv,c->argc,flags);
         }
 
