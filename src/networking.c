@@ -1403,6 +1403,12 @@ int processInlineBuffer(redisClient *c) {
  * multi bulk requests idempotent. */
 // 如果在读入协议内容时，发现内容不符合协议，那么异步地关闭这个客户端。
 static void setProtocolError(redisClient *c, int pos) {
+    //如果是主从同步，不关闭客户端
+    if(c->flags & REDIS_MASTER){
+        c->querybuf = sdsRemoveFreeSpace(c->querybuf);//清空错误协议的请求命令
+        redisLog(REDIS_VERBOSE,"master sync Protocol error skip");
+        return;
+    }
     if (server.verbosity >= REDIS_VERBOSE) {
         sds client = catClientInfoString(sdsempty(),c);
         redisLog(REDIS_VERBOSE,
@@ -1757,11 +1763,6 @@ int readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
 
     // 如果有需要，更新缓冲区内容长度的峰值（peak）
     if (c->querybuf_peak < qblen) c->querybuf_peak = qblen;
-    //TODO 如果这个时候主线程定时任务已经获取c->query_buf的操作权限，怎么保证这次请求不丢失
-    //TODO 判断可读事件是否会重复触发
-    //原子操作，避免与主线程并发操作c->query_buf
-    redisLog(REDIS_DEBUG,"__sync_bool_compare_and_swap c->cron_switch %d connfd %d ",c->cron_switch,c->fd);
-
 
     // 为查询缓冲区分配空间
     struct sdshdr *sh;
@@ -1770,7 +1771,7 @@ int readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     redisLog(REDIS_DEBUG,"reactor_id %d c->querybuf %p free %d readlen %d connfd %d",c->reactor_id,c->querybuf,sh->free,readlen,fd);
     c->querybuf = sdsMakeRoomFor(c->querybuf, readlen);
     sh1 = (void*) (c->querybuf-(sizeof(struct sdshdr)));
-    redisLog(REDIS_DEBUG,"reactor_id %d sdsMakeRoomFor c->querybuf1 %p  free %d connfd %d",c->reactor_id,c->querybuf,sh1->free,fd);
+    redisLog(REDIS_WARNING,"reactor_id %d sdsMakeRoomFor c->querybuf1 %s  free %d connfd %d",c->reactor_id,c->querybuf,sh1->free,fd);
     // 读入内容到查询缓存
     nread = read(fd, c->querybuf+qblen, readlen);
 
@@ -1833,6 +1834,14 @@ int readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     // 函数会执行到缓存中的所有内容都被处理完为止
     if(0==c->use_reactor){  //不使用reactor线程时(非客户端请求),直接执行命令
         processInputBuffer(c);
+        if(c->flags & REDIS_MASTER){
+            redisLog(REDIS_WARNING,"sync to replication query buffer  %s", c->querybuf);
+            //主从同步的情况下，master节点不等replication节点返回,会连续的向connfd写入数据，因此在每次执行后清空c->querybuf
+            c->querybuf = sdsempty();
+            redisLog(REDIS_WARNING,"sync to replication2 query buffer  %s", c->querybuf);
+
+        }
+
     }
 
 //    server.current_client = NULL; //需要考虑多线程并发的情况，暂时注释

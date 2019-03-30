@@ -14,7 +14,6 @@ extern struct redisServer server;
 //reactor线程读取事件回调函数  发送数据给worker线程
 void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     redisClient *c = (redisClient*) privdata;
-    //TODO 读取数据
 
     //原子交换 cron_switch 为1时替换为0，并返回true,否则不替换，返回false
     //命令执行完之前不解锁
@@ -50,9 +49,7 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %d  c->request_times %d pipeWriteFd %d write %d c %p connfd %s",c->reactor_id,c->request_times,pipeWriteFd,ret,c,str);
 
 
-    //数据读取完需要立即触发woker线程执行，不能等待连接可写
     //将客户端信息添加到worker线程的队列中
-//    atomListAddNodeTail(server.worker[0].clients,c);
     atomListAddNodeTail(server.reactors[c->reactor_id].clients,c);
 //    printf("clients list len %d connfd %d \n",server.worker[0].clients->len,c->fd);
 

@@ -1181,18 +1181,18 @@ int clientsCronResizeQueryBuffer(redisClient *c) {
      * 2) Client is inactive and the buffer is bigger than 1k. 
      *    客户端不活跃，并且缓冲区大于 1k 。
      */
-    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d c->cron_switch %d connfd %d",c->querybuf,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime,c->cron_switch,c->fd);
 
     if (((querybuf_size > REDIS_MBULK_BIG_ARG) &&
          (querybuf_size/(c->querybuf_peak+1)) > 2) ||
          (querybuf_size > 1024 && idletime > 2))
     {
+        redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d c->cron_switch %d connfd %d",c->querybuf,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime,c->cron_switch,c->fd);
         /* Only resize the query buffer if it is actually wasting space. */
         if (sdsavail(c->querybuf) > 1024) {
-//            c->querybuf = sdsRemoveFreeSpace(c->querybuf);
+            c->querybuf = sdsRemoveFreeSpace(c->querybuf);
         }
+        redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer2 query_buff %p querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d c->cron_switch %d connfd %d",c->querybuf,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime,c->cron_switch,c->fd);
     }
-    redisLog(REDIS_VERBOSE,"clientsCronResizeQueryBuffer query_buff %p connfd %d querybuf_size %d REDIS_MBULK_BIG_ARG %d c->querybuf_peak %d idletime %d",c->querybuf,c->fd,querybuf_size,REDIS_MBULK_BIG_ARG,c->querybuf_peak,idletime);
 
 
     /* Reset the peak again to capture the peak memory usage in the next
@@ -2576,8 +2576,11 @@ void call(redisClient *c, int flags) {
         if (dirty)
             flags |= (REDIS_PROPAGATE_REPL | REDIS_PROPAGATE_AOF);
 
-        if (flags != REDIS_PROPAGATE_NONE)
+        if (flags != REDIS_PROPAGATE_NONE){     //传播到aof和replication
+            redisLog(REDIS_WARNING,"after call propagate c->cmd %s",c->cmd->name);
             propagate(c->cmd,c->db->id,c->argv,c->argc,flags);
+        }
+
     }
 
     /* Restore the old FORCE_AOF/REPL flags, since call can be executed
