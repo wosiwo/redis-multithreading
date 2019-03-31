@@ -869,7 +869,7 @@ typedef struct _thWorker{
     // 一个链表，保存了本线程客户端状态结构
     list *clients;              /* List of active clients */
 } thWorker;
-#define MAX_REACTOR_NUM 6
+#define MAX_REACTOR_NUM 12
 
 struct redisServer {
 
