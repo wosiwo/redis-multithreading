@@ -21,6 +21,8 @@
 
 main(1);                                    //入口函数
 initServer(1);                             //初始化服务
+    aeCreateTimeEvent(1);                   //时间事件
+    aeEventLoop *eventLoop->beforesleep(1);
 listenToPort(1);
 aeCreateFileEvent(1);                        //事件触发绑定
 aeMain(1);                                   //主事件循环
@@ -28,6 +30,7 @@ aeProcessEvents(1);                           //开始处理事件
 acceptTcpHandler(1);acceptUnixHandler(1);     //创建tcp/本地 连接
 acceptCommonHandler(1);                    //TCP 连接 accept 处理器
 createClient(1);                           //创建一个新客户端
+dispatch2Reactor();                         //分配到指定reactor线程
 readQueryFromClient(1);                       //读取客户端的查询缓冲区内容
     sdsMakeRoomFor(1);
 processInputBuffer(1);                        //处理客户端输入的命令内容
@@ -71,10 +74,10 @@ serverCron(1);              //加入到时间事件
 aeMain(1);                  //主循环
 aeProcessEvents(1);         //循环处理事件
 processTimeEvents(1);       //处理所有已到达的时间事件
-clientsCron(1);
-clientsCronResizeQueryBuffer(1);
+databasesCron();            //对数据库操作
+clientsCron(1);             //关闭超时客户端，
+    clientsCronResizeQueryBuffer(1);    //回收c->querybuf空闲空间
     sdsRemoveFreeSpace(1);
-databasesCron(1);
 //主从同步逻辑
 //主库逻辑
     //定时任务
