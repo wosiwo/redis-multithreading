@@ -24,7 +24,8 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     }
 
     int ret = readQueryFromClient(el, connfd, privdata, mask);
-
+    //reactor线程中直接执行命令
+    return;
     if(!ret){    //读到eof或者客户端关闭连接，不再把连接抛给woker线程
         redisLog(REDIS_NOTICE,"querybuf null reactor_id %d connfd %d ",c->reactor_id,connfd);
         return;

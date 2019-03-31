@@ -1918,7 +1918,7 @@ int readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
 
     // 从查询缓存重读取内容，创建参数，并执行命令
     // 函数会执行到缓存中的所有内容都被处理完为止
-    if(0==c->use_reactor || c->flags & REDIS_MASTER){  //不使用reactor线程时(非客户端请求),直接执行命令
+    if(0==c->use_reactor || c->flags & REDIS_MASTER || 1){  //不使用reactor线程时(非客户端请求),直接执行命令
         if(c->flags & REDIS_MASTER) {
             redisLog(REDIS_VERBOSE, "sync to replication query buffer  %s", c->querybuf);
         }
