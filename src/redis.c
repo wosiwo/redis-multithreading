@@ -1952,7 +1952,7 @@ void initServerConfig() {
     server.watchdog_period = 0;
 
     //reactor 线程数量
-    server.reactorNum = 6;
+    server.reactorNum = 12;
     //日志输出原子锁
     server.redis_log_atomlock = 1;
 }
