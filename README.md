@@ -33,6 +33,7 @@ implement multithreading in redis3.0
 |cpu|内存|
 | ------ | ------ | 
 | Intel(R) Xeon(R) CPU E5-1650 0 @ 3.20GHz| DDR3 32G|
+
 压测结果
 
 |        | 原版redis3.0   | 多reactor单worker |多reactor（io线程直接执行命令）|多reactor多worker(*)|
