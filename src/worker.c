@@ -49,7 +49,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
         redisLog(REDIS_WARNING,"workerReadHandle Can't read for worker(id:%d) socketpairs[1](%d) n %d",worker->worker_id,pipfd,n);
 
     }
-    if(n>0) i = atoi(buf);  //第一次直接从指定reactor线程的队列取数据
+//    if(n>0) i = atoi(buf);  //第一次直接从指定reactor线程的队列取数据
 //    redisLog(REDIS_VERBOSE,"workerReadHandle reactor_id %d ",reactor_id);
 
     void *node;
