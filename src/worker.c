@@ -34,10 +34,11 @@ void syncReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask) {
 
 //通过监听管道，接收reactor线程触发的读事件
 void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
-    AO_SET(&server.worker[0].loopStatus,1);
-    redisLog(REDIS_NOTICE,"workerReadHandle pipfd %d ",pipfd);
     thWorker *worker = privdata;
     int worker_id = worker->worker_id;
+    AO_SET(&server.worker[worker_id].loopStatus,1);
+    redisLog(REDIS_NOTICE,"workerReadHandle pipfd %d ",pipfd);
+
     int n;
     char buf[5];
     int reactor_id;
@@ -54,27 +55,20 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
     void *node;
     int nullNodes = 0;
     do{     //轮询各个线程的队列，循环弹出所有节点
-        reactor_id = i%(server.reactorNum);
-        redisLog(REDIS_VERBOSE,"workerReadHandle reactor_id %d i %d ",reactor_id,i);
-        if(i%(server.reactorNum)==0) {
-            nullNodes = 0;
-        }
+//        reactor_id = i%(server.reactorNum);
+//        redisLog(REDIS_VERBOSE,"workerReadHandle reactor_id %d i %d ",reactor_id,i);
+//        if(i%(server.reactorNum)==0) {
+//            nullNodes = 0;
+//        }
         if(i%(1000)==0) {   //每执行1千次命令，对数据库字典做一次清理
             if(server.ifMaster) databasesCronWorker();    //对数据库字典进行清理，以及rehash
         }
         i++;
 
         //从无锁队列从取出client信息
-        node = atomListPop(server.reactors[reactor_id].clients);
+        node = atomListPop(server.reactors[worker_id].clients);
         if(NULL==node){
-            nullNodes++;
-            redisLog(REDIS_VERBOSE,"listPop node null");
-            if(nullNodes>=server.reactorNum){
-                AO_SET(&server.worker[0].loopStatus,0);
-                break;
-            }
-            continue;
-//            return;
+            break;
         }
         redisClient *c = (redisClient*) node;
 
@@ -98,7 +92,7 @@ void workerPipeReadHandle(aeEventLoop *el,int pipfd, void *privdata, int mask){
     }while(nullNodes<server.reactorNum); //循环取队列
     redisLog(REDIS_VERBOSE,"workerhandel loop end");
 
-    AO_SET(&server.worker[0].loopStatus,0);
+    AO_SET(&server.worker[worker_id].loopStatus,0);
     if(server.ifMaster) databasesCronWorker();    //对数据库字典进行清理，以及rehash
 
 }
@@ -136,7 +130,7 @@ void rdWorkerThread_loop(int worker_id) {
 //    }
 
     //监听本线程管道
-    int readfd = server.worker[0].pipWorkerFd;
+    int readfd = server.worker[worker_id].pipWorkerFd;
     if (aeCreateFileEvent(el,readfd,AE_READABLE,
                           workerPipeReadHandle, &server.worker[worker_id]) == AE_ERR)
     {

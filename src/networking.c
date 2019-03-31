@@ -870,9 +870,9 @@ void copyClientOutputBuffer(redisClient *dst, redisClient *src) {
 
 //主从同步专用，避免master节点连续写入造成的问题
 void dispatch2Worker(int connfd,redisClient *c){
-    c->reactor_el = server.worker[0].el; //绑定线程事件循环
+    c->reactor_el = server.worker[c->reactor_id].el; //绑定线程事件循环
     c->reactor_id = 0; //绑定线程事件循环
-    if (aeCreateFileEvent(server.worker[0].el,connfd,AE_READABLE,
+    if (aeCreateFileEvent(server.worker[c->reactor_id].el,connfd,AE_READABLE,
                           readQueryFromClient, c) == AE_ERR)
     {
         redisLog(REDIS_DEBUG,"dispatch2Worker readQueryFromClient AE_ERR %d",AE_ERR);
@@ -886,7 +886,8 @@ void dispatch2Reactor(int connfd,redisClient *c){
     aeEventLoop *reactor_el = server.reactors[reactor_id].el;    //获取指定线程的事件驱动器
 
 //    redisLog(REDIS_DEBUG,"dispatch2Reactor reactor_id %d",reactor_id);
-    redisLog(REDIS_DEBUG,"dispatch2Reactor reactor_id %d reactor_el->fired->fd %d  connfd %d",reactor_id,reactor_el->fired->fd,connfd);
+//    redisLog(REDIS_DEBUG,"dispatch2Reactor reactor_id %d reactor_el->fired->fd %d  connfd %d",reactor_id,reactor_el->fired->fd,connfd);
+    redisLog(REDIS_DEBUG,"dispatch2Reactor reactor_id %d server.reactorNum %  connfd %d",reactor_id,server.reactorNum,connfd);
 
 
     c->reactor_el = reactor_el; //绑定线程事件循环
@@ -894,7 +895,7 @@ void dispatch2Reactor(int connfd,redisClient *c){
 
     //将connfd加入到指定reactor线程的事件循环中
     //reactor线程的事件驱动器被触发后，AE_READABLE类型的事件会被分发到reactorReadHandle函数
-//    if (aeCreateFileEvent(server.worker[0].el,fd,AE_READABLE,
+//    if (aeCreateFileEvent(server.worker[c->reactor_id].el,fd,AE_READABLE,
     if (aeCreateFileEvent(reactor_el,connfd,AE_READABLE,
                           reactorReadHandle, c) == AE_ERR)
     {

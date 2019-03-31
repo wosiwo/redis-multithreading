@@ -1372,7 +1372,7 @@ struct redisServer {
     //thReactor 保存reactor线程信息
     thReactor  reactors[MAX_REACTOR_NUM];
     // 事件状态
-    thWorker worker[1];
+    thWorker worker[MAX_REACTOR_NUM];
     //线程数量
     int reactorNum;
 

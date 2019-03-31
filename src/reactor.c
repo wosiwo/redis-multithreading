@@ -22,8 +22,12 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
         redisLog(REDIS_DEBUG,"reactorReadHandle wait lock reactor_id %d connfd %d ",c->reactor_id,connfd);
         continue;   //循环等待获取锁
     }
-
     int ret = readQueryFromClient(el, connfd, privdata, mask);
+
+    //测试reactor线程中直接执行命令
+    //压测结果：多个reactor线程直接执行命令的效果甚至不如多个reactor线程加单个worker线程
+//    return;
+
 
     if(!ret){    //读到eof或者客户端关闭连接，不再把连接抛给woker线程
         redisLog(REDIS_NOTICE,"querybuf null reactor_id %d connfd %d ",c->reactor_id,connfd);
@@ -36,10 +40,10 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     }
 
     c->request_times++;      //增加请求次数
-    aeEventLoop *worker_el = server.worker[0].el;
+    aeEventLoop *worker_el = server.worker[c->reactor_id].el;
 
     //通过管道通知worker线程
-    int pipeWriteFd = server.worker[0].pipMasterFd;
+    int pipeWriteFd = server.worker[c->reactor_id].pipMasterFd;
     char buf[1];
     buf[0] = 'c';
 
@@ -48,15 +52,14 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     sprintf(str,"%d",c->reactor_id);   //数字转字符串
     redisLog(REDIS_VERBOSE,"reactorReadHandle reactor_id %d  c->request_times %d pipeWriteFd %d write %d c %p connfd %s",c->reactor_id,c->request_times,pipeWriteFd,ret,c,str);
 
-
     //将客户端信息添加到worker线程的队列中
     atomListAddNodeTail(server.reactors[c->reactor_id].clients,c);
-//    printf("clients list len %d connfd %d \n",server.worker[0].clients->len,c->fd);
+//    printf("clients list len %d connfd %d \n",server.worker[c->reactor_id].clients->len,c->fd);
 
 
     //worker线程循环读取队列，可以判断worker线程状态来决定是否通过管道通知worker线程
     //避免大量的管道读写带来的开销
-    if(0==server.worker[0].loopStatus){
+    if(0==server.worker[c->reactor_id].loopStatus){ //判断与当前线程相同编号的worker线程是否在循环获取队列
         ret = write(pipeWriteFd, str, 5);
         redisLog(REDIS_NOTICE,"reactorReadHandle reactor_id %s write %d connfd %d",str,ret,connfd);
     }

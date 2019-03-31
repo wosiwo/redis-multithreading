@@ -2242,21 +2242,25 @@ void initServer() {
         }
         redisLog(REDIS_VERBOSE,"pthread_create  %d",i);
     }
-    //创建一个worker线程来执行客户端命令
-    int socks[2];
-    //在master进程中将所有管道都创建好
-    int ret = socketpair(AF_UNIX, SOCK_DGRAM, 0, socks);
-    //获取用于读取的fd
-    server.worker[0].pipWorkerFd = socks[1];
-    server.worker[0].pipMasterFd = socks[0];
+    //创建worker线程来执行客户端命令
 
+    int ret;
     i = 0;
-    if (pthread_create(&pidt, NULL,rdWorkerThread_loop, i) < 0)
+    for (i = 0; i < server.reactorNum; i++)
     {
-//        vsprintf();
-//        redisPanic(sprint("pthread_create[rdWorkerThread_loop] failed. Error: %s[%d]", strerror(errno), errno));
-        redisPanic("pthread_create[rdWorkerThread_loop] failed. ");
+        int socks[2];
+        //在master进程中将所有管道都创建好
+        ret = socketpair(AF_UNIX, SOCK_DGRAM, 0, socks);
+        //获取用于读取的fd
+        server.worker[i].pipWorkerFd = socks[1];
+        server.worker[i].pipMasterFd = socks[0];
+        if (pthread_create(&pidt, NULL,rdWorkerThread_loop, i) < 0)
+        {
+            redisPanic("pthread_create[rdWorkerThread_loop] failed.");
+        }
+        redisLog(REDIS_VERBOSE,"pthread_create  %d",i);
     }
+
 
     /* Create an event handler for accepting new connections in TCP and Unix
      * domain sockets. */
