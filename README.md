@@ -30,9 +30,9 @@ implement multithreading in redis3.0
 
 机器环境
 
-|cpu|内存|
-| ------ | ------ | 
-| Intel(R) Xeon(R) CPU E5-1650 0 @ 3.20GHz| DDR3 32G|
+|cpu     |  内存   | 操作系统 |
+| ------ | ------ | ------|
+| Intel(R) Xeon(R) CPU E5-1650 0 @ 3.20GHz (6核12线程) | DDR3 32G|Ubuntu 16.04.4 LTS|
 
 压测结果
 
@@ -46,7 +46,7 @@ implement multithreading in redis3.0
 
 ```
 //这里直接使用了vire的多线程压测客户端
-//e.g get命令的压测
+//e.g get命令的压测  -T 表示压测程序开启的线程数
 ./tests/vire-benchmark -p 6381 -c 600 -T 12 -t get -n 1000000
 ```
 GET命令的压测会有两个值，斜杆"/"前是直接对空数据库的GET请求，另一个是有数据情况下的GET请求  
