@@ -49,7 +49,7 @@ void reactorReadHandle(aeEventLoop *el,int connfd, void *privdata, int mask){
     redisLog(REDIS_VERBOSE,"reactorReadHandle reactor_id %d  c->request_times %d pipeWriteFd %d write %d c %p connfd %s",c->reactor_id,c->request_times,pipeWriteFd,ret,c,str);
 
 
-    //将客户端信息添加到worker线程的队列中
+    //将客户端信息添加到当前reactor线程的队列中
     atomListAddNodeTail(server.reactors[c->reactor_id].clients,c);
 //    printf("clients list len %d connfd %d \n",server.worker[0].clients->len,c->fd);
 
