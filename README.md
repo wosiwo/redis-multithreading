@@ -4,7 +4,7 @@ implement multithreading in redis3.0
 
 在 [@huangz1990](https://github.com/huangz1990)的Redis3.0中文注释版的基础上修改 https://github.com/huangz1990/redis-3.0-annotated
 
-也可以在我的博客看更详细的实践笔记 [多线程redis的设计思路，与实践笔记](http://onceme.me/post/redis-multithreading-implement/)
+也可以在我的博客看更详细的实践笔记 [多线程redis的设计思路，与实践笔记](https://zhuanlan.zhihu.com/p/60996977)
 ## 新增的特性
 
 * 参考了阿里云Redis多线程实现方式
